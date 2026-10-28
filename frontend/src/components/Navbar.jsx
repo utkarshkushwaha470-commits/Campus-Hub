@@ -6,7 +6,6 @@ export default function Navbar({ user, activePage, setActivePage, onLogout }) {
   const isPending = user.status === 'PENDING';
   const isRejected = user.status === 'REJECTED';
   const isAdmin = user.role === 'ADMIN';
-  const isFacultyOrAdmin = user.role === 'FACULTY' || user.role === 'ADMIN';
 
   return (
     <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800">
@@ -41,6 +40,19 @@ export default function Navbar({ user, activePage, setActivePage, onLogout }) {
             >
               Dashboard
             </button>
+
+            {/* Instagram Style Chat Nav Pill */}
+            <button
+              onClick={() => setActivePage('chat')}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${
+                activePage === 'chat'
+                  ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              <span>💬 Campus DMs</span>
+            </button>
+
             <button
               onClick={() => setActivePage('year-sections')}
               className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
@@ -51,6 +63,7 @@ export default function Navbar({ user, activePage, setActivePage, onLogout }) {
             >
               Year Sections
             </button>
+
             <button
               onClick={() => setActivePage('problem-box')}
               className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
@@ -61,6 +74,7 @@ export default function Navbar({ user, activePage, setActivePage, onLogout }) {
             >
               Problem Box
             </button>
+
             <button
               onClick={() => setActivePage('leaderboard')}
               className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
@@ -71,6 +85,7 @@ export default function Navbar({ user, activePage, setActivePage, onLogout }) {
             >
               Leaderboard
             </button>
+
             {isAdmin && (
               <button
                 onClick={() => setActivePage('admin-portal')}

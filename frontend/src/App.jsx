@@ -9,6 +9,7 @@ import PremiumSectionPage from './pages/PremiumSectionPage';
 import ProblemBoxPage from './pages/ProblemBoxPage';
 import AdminVerificationPage from './pages/AdminVerificationPage';
 import LeaderboardPage from './pages/LeaderboardPage';
+import CampusChatPage from './pages/CampusChatPage';
 import { getCurrentUser, removeAuthToken, removeCurrentUser } from './services/api';
 
 export default function App() {
@@ -121,6 +122,9 @@ export default function App() {
         {activePage === 'dashboard' && (
           <DashboardPage user={user} onNavigate={(page) => setActivePage(page)} />
         )}
+        {activePage === 'chat' && (
+          <CampusChatPage user={user} />
+        )}
         {activePage === 'year-sections' && (
           <YearSectionPage user={user} />
         )}
@@ -138,7 +142,7 @@ export default function App() {
         )}
       </main>
 
-      {/* Mobile Bottom Navigation Bar (PWA Experience) */}
+      {/* Mobile Bottom Navigation Bar (Instagram PWA Experience) */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-lg border-t border-slate-800 flex justify-around py-2.5 px-1">
         <button
           onClick={() => setActivePage('dashboard')}
@@ -151,6 +155,19 @@ export default function App() {
           </svg>
           Home
         </button>
+
+        <button
+          onClick={() => setActivePage('chat')}
+          className={`flex flex-col items-center gap-1 text-[10px] font-bold ${
+            activePage === 'chat' ? 'text-purple-400' : 'text-slate-400'
+          }`}
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          </svg>
+          Chat
+        </button>
+
         <button
           onClick={() => setActivePage('year-sections')}
           className={`flex flex-col items-center gap-1 text-[10px] font-bold ${
@@ -162,6 +179,7 @@ export default function App() {
           </svg>
           Sections
         </button>
+
         <button
           onClick={() => setActivePage('problem-box')}
           className={`flex flex-col items-center gap-1 text-[10px] font-bold ${
@@ -173,6 +191,7 @@ export default function App() {
           </svg>
           Problem Box
         </button>
+
         <button
           onClick={() => setActivePage('leaderboard')}
           className={`flex flex-col items-center gap-1 text-[10px] font-bold ${
@@ -184,6 +203,7 @@ export default function App() {
           </svg>
           Ranks
         </button>
+
         {user.role === 'ADMIN' && (
           <button
             onClick={() => setActivePage('admin-portal')}

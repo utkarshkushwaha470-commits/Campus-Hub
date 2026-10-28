@@ -4,6 +4,7 @@ from app.database import SessionLocal, engine, Base
 from app.models.user import User, UserRole, AccountStatus
 from app.models.id_verification import IDVerification, IDVerificationStatus, GemmaMatchHint
 from app.models.query import Query, QueryAnswer, QueryVisibility
+from app.models.chat import Thread, Message, ThreadType
 from app.models.notification import Notification, NotificationTargetType
 from app.models.problem_box import ProblemBoxMessage, ProblemRecipientRole, ProblemStatus
 from app.services.auth_service import get_password_hash
@@ -207,6 +208,45 @@ def run_seed():
             db.add(notif)
             db.commit()
             print("Created sample broadcast notification.")
+
+    # 10. Seed sample Instagram-style DM thread
+    if junior_1st and senior_4th:
+        dm_thread = db.query(Thread).filter(
+            ((Thread.student_id == junior_1st.id) & (Thread.senior_id == senior_4th.id)) |
+            ((Thread.student_id == senior_4th.id) & (Thread.senior_id == junior_1st.id))
+        ).first()
+        if not dm_thread:
+            dm_thread = Thread(
+                id=str(uuid.uuid4()),
+                thread_type=ThreadType.DIRECT_MESSAGE,
+                student_id=junior_1st.id,
+                senior_id=senior_4th.id,
+                topic="Direct Chat",
+                last_message_text="Sure Ananya! Feel free to drop them here. I am happy to help 🚀",
+                last_message_at=datetime.utcnow(),
+            )
+            db.add(dm_thread)
+            db.commit()
+
+            msg1 = Message(
+                id=str(uuid.uuid4()),
+                thread_id=dm_thread.id,
+                sender_id=junior_1st.id,
+                content_text="Hey Priya di! Are you free to review my sorting notes sometime?",
+                reactions='{"❤️": ["' + senior_4th.id + '"]}',
+                is_read=True
+            )
+            msg2 = Message(
+                id=str(uuid.uuid4()),
+                thread_id=dm_thread.id,
+                sender_id=senior_4th.id,
+                content_text="Sure Ananya! Feel free to drop them here. I am happy to help 🚀",
+                reactions='{"🔥": ["' + junior_1st.id + '"]}',
+                is_read=True
+            )
+            db.add_all([msg1, msg2])
+            db.commit()
+            print("Created sample Direct Message thread with reactions.")
 
     db.close()
     print("Database seeding completed successfully!")

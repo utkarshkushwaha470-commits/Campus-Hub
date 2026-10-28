@@ -85,6 +85,30 @@ export const api = {
     method: 'POST'
   }),
 
+  // Instagram-Style Chat & DMs
+  getChatInbox: () => request('/chat/inbox'),
+  searchCampusUsers: (q = '') => request(`/chat/users/search?q=${encodeURIComponent(q)}`),
+  startChatThread: (recipientId) => {
+    const fd = new FormData();
+    fd.append('recipient_id', recipientId);
+    return request('/chat/start', { method: 'POST', body: fd });
+  },
+  getThreadMessages: (threadId) => request(`/chat/threads/${threadId}/messages`),
+  sendChatMessage: (threadId, formData) => request(`/chat/threads/${threadId}/messages`, {
+    method: 'POST',
+    body: formData
+  }),
+  reactToMessage: (messageId, emoji) => {
+    const fd = new FormData();
+    fd.append('emoji', emoji);
+    return request(`/chat/messages/${messageId}/react`, { method: 'POST', body: fd });
+  },
+  // Admin Chat Super-Access
+  getAdminAllChatThreads: () => request('/chat/admin/all-threads'),
+  adminDeleteChatMessage: (messageId) => request(`/chat/admin/messages/${messageId}`, {
+    method: 'DELETE'
+  }),
+
   // Ratings & Leaderboard
   submitRating: (queryId, stars, comment) => request('/ratings/', {
     method: 'POST',

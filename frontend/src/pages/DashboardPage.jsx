@@ -31,15 +31,40 @@ export default function DashboardPage({ user, onNavigate }) {
       {/* Profile Card */}
       <ProfileCard user={user} />
 
-      {/* 4 Core Campus Areas */}
+      {/* Campus Spaces & Core Hubs */}
       <div>
         <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
           <span>Campus Spaces & Core Hubs</span>
           <span className="text-xs font-normal text-slate-400">• Role-Based Permissions Active</span>
         </h3>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* 1. Year Sections */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {/* 1. Instagram-Style Campus DMs (NEW) */}
+          <div 
+            onClick={() => onNavigate('chat')}
+            className="group cursor-pointer rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-purple-950/40 border border-slate-800 hover:border-pink-500/50 p-5 transition-all shadow-lg hover:shadow-pink-500/10 relative overflow-hidden"
+          >
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-pink-500/20 to-purple-600/20 text-pink-400 border border-pink-500/30 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+            </div>
+            <div className="flex items-center justify-between">
+              <h4 className="font-bold text-white text-base">Campus DMs</h4>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-gradient-to-r from-pink-500/30 to-purple-500/30 text-pink-200 border border-pink-500/40">
+                INSTA-CHAT
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+              Instagram-style messaging with peers, image sharing, and emoji reactions.
+            </p>
+            <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-pink-400 font-semibold">
+              <span>Open DMs</span>
+              <span className="group-hover:translate-x-1 transition-transform">→</span>
+            </div>
+          </div>
+
+          {/* 2. Year Sections */}
           <div 
             onClick={() => onNavigate('year-sections')}
             className="group cursor-pointer rounded-2xl bg-slate-900 border border-slate-800 hover:border-blue-500/50 p-5 transition-all shadow-lg hover:shadow-blue-500/10 relative overflow-hidden"
@@ -62,7 +87,7 @@ export default function DashboardPage({ user, onNavigate }) {
             </div>
           </div>
 
-          {/* 2. Premium Section */}
+          {/* 3. Premium Section */}
           <div 
             onClick={() => {
               if (hasPremiumAccess) onNavigate('premium-section');
@@ -98,7 +123,7 @@ export default function DashboardPage({ user, onNavigate }) {
             </div>
           </div>
 
-          {/* 3. Problem Box */}
+          {/* 4. Problem Box */}
           <div 
             onClick={() => onNavigate('problem-box')}
             className="group cursor-pointer rounded-2xl bg-slate-900 border border-slate-800 hover:border-amber-500/50 p-5 transition-all shadow-lg hover:shadow-amber-500/10 relative overflow-hidden"
@@ -121,7 +146,7 @@ export default function DashboardPage({ user, onNavigate }) {
             </div>
           </div>
 
-          {/* 4. Leaderboard */}
+          {/* 5. Leaderboard */}
           <div 
             onClick={() => onNavigate('leaderboard')}
             className="group cursor-pointer rounded-2xl bg-slate-900 border border-slate-800 hover:border-emerald-500/50 p-5 transition-all shadow-lg hover:shadow-emerald-500/10 relative overflow-hidden"
@@ -146,7 +171,7 @@ export default function DashboardPage({ user, onNavigate }) {
         </div>
       </div>
 
-      {/* College Broadcast Alerts (Section 6) */}
+      {/* College Broadcast Alerts */}
       <div className="rounded-2xl bg-slate-900 border border-slate-800 p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
