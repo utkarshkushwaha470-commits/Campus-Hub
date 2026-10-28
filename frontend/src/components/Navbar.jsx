@@ -65,6 +65,17 @@ export default function Navbar({ user, activePage, setActivePage, onLogout }) {
             </button>
 
             <button
+              onClick={() => setActivePage('groups')}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                activePage === 'groups'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              🏛️ Groups
+            </button>
+
+            <button
               onClick={() => setActivePage('problem-box')}
               className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
                 activePage === 'problem-box'

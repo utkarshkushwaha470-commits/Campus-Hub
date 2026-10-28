@@ -67,3 +67,9 @@ class IDVerificationReview(BaseModel):
 class YearlyPromotionRequest(BaseModel):
     user_id: str
     new_year: int
+
+class StudentTerminationRequest(BaseModel):
+    reason: str
+
+class StudentReinstateRequest(BaseModel):
+    reason: Optional[str] = "Administrative reinstatement"

@@ -154,6 +154,48 @@ export const api = {
   }),
   getAdminAuditLogs: () => request('/admin/audit-logs'),
 
+  // Admin Student Management
+  listAllStudents: (search = '', status = '', year = '', role = '') => {
+    const params = new URLSearchParams();
+    if (search) params.append('search', search);
+    if (status) params.append('status_filter', status);
+    if (year) params.append('year_filter', year);
+    if (role) params.append('role_filter', role);
+    const qs = params.toString();
+    return request(`/admin/students${qs ? `?${qs}` : ''}`);
+  },
+  terminateStudent: (userId, reason) => request(`/admin/students/${userId}/terminate`, {
+    method: 'POST',
+    body: JSON.stringify({ reason })
+  }),
+  reinstateStudent: (userId, reason = 'Administrative reinstatement') => request(`/admin/students/${userId}/reinstate`, {
+    method: 'POST',
+    body: JSON.stringify({ reason })
+  }),
+
+  // Purpose Groups
+  listGroups: (category = '') => request(`/groups${category ? `?category=${category}` : ''}`),
+  getGroupDetails: (groupId) => request(`/groups/${groupId}`),
+  createGroup: (data) => request('/groups', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  }),
+  addGroupMember: (groupId, userId, role = 'MEMBER') => request(`/groups/${groupId}/members`, {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId, role_in_group: role })
+  }),
+  removeGroupMember: (groupId, userId) => request(`/groups/${groupId}/members/${userId}`, {
+    method: 'DELETE'
+  }),
+  getGroupMessages: (groupId) => request(`/groups/${groupId}/messages`),
+  postGroupMessage: (groupId, contentText, attachmentUrl = null) => request(`/groups/${groupId}/messages`, {
+    method: 'POST',
+    body: JSON.stringify({ content_text: contentText, attachment_url: attachmentUrl })
+  }),
+  deleteGroup: (groupId) => request(`/groups/${groupId}`, {
+    method: 'DELETE'
+  }),
+
   // Moderation
   reportContent: (targetType, targetId, reason, details) => request('/moderation/report', {
     method: 'POST',

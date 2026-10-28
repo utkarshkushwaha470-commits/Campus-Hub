@@ -16,6 +16,7 @@ class AccountStatus:
     REJECTED = "REJECTED"
     SUSPENDED = "SUSPENDED"
     BANNED = "BANNED"
+    TERMINATED = "TERMINATED"
 
 class User(Base):
     __tablename__ = "users"

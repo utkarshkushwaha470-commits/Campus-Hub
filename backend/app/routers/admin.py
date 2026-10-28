@@ -7,7 +7,8 @@ from app.models.user import User, AccountStatus, UserRole
 from app.models.id_verification import IDVerification, IDVerificationStatus
 from app.models.admin_audit_log import AdminAuditLog, AuditActionType
 from app.schemas.auth import (
-    IDVerificationResponse, IDVerificationReview, YearlyPromotionRequest, UserResponse
+    IDVerificationResponse, IDVerificationReview, YearlyPromotionRequest, UserResponse,
+    StudentTerminationRequest, StudentReinstateRequest
 )
 from app.services.auth_service import require_roles, get_current_user
 from app.services.storage_service import storage_service
@@ -221,3 +222,143 @@ async def get_admin_audit_logs(
     """Returns immutable log of all administrator actions for institutional accountability."""
     logs = db.query(AdminAuditLog).order_by(AdminAuditLog.created_at.desc()).limit(limit).all()
     return logs
+
+@router.get("/students")
+async def list_all_students(
+    search: Optional[str] = None,
+    status_filter: Optional[str] = None,
+    year_filter: Optional[int] = None,
+    role_filter: Optional[str] = None,
+    current_admin: User = Depends(admin_only),
+    db: Session = Depends(get_db)
+):
+    """
+    Admin access to ALL students across campus.
+    Enables viewing profiles, academic years, CRN/roll numbers, points, level, and account status.
+    """
+    query = db.query(User)
+    
+    if status_filter and status_filter.upper() != "ALL":
+        query = query.filter(User.status == status_filter.upper())
+    
+    if year_filter:
+        query = query.filter(User.locked_year == year_filter)
+        
+    if role_filter and role_filter.upper() != "ALL":
+        query = query.filter(User.role == role_filter.upper())
+        
+    if search:
+        s = f"%{search.strip()}%"
+        query = query.filter(
+            (User.full_name.ilike(s)) |
+            (User.email.ilike(s)) |
+            (User.crn_or_roll_number.ilike(s)) |
+            (User.batch.ilike(s))
+        )
+        
+    users = query.order_by(User.created_at.desc()).all()
+    
+    return [
+        {
+            "id": u.id,
+            "full_name": u.full_name,
+            "email": u.email,
+            "role": u.role,
+            "status": u.status,
+            "locked_year": u.locked_year,
+            "batch": u.batch,
+            "crn_or_roll_number": u.crn_or_roll_number,
+            "points": u.points,
+            "level": u.level,
+            "is_2fa_enabled": u.is_2fa_enabled,
+            "created_at": u.created_at
+        }
+        for u in users
+    ]
+
+@router.post("/students/{user_id}/terminate")
+async def terminate_student(
+    user_id: str,
+    req: StudentTerminationRequest,
+    request: Request,
+    current_admin: User = Depends(admin_only),
+    db: Session = Depends(get_db)
+):
+    """
+    Admin action to TERMINATE a student's account.
+    Immediately revokes access across the platform and logs an audit record.
+    """
+    student = db.query(User).filter(User.id == user_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student account not found.")
+
+    if student.role == UserRole.ADMIN:
+        raise HTTPException(status_code=400, detail="Cannot terminate an Administrator account.")
+
+    previous_status = student.status
+    student.status = AccountStatus.TERMINATED
+    db.commit()
+
+    client_ip = request.client.host if request.client else "127.0.0.1"
+    audit_service.log_action(
+        db=db,
+        admin_id=current_admin.id,
+        action_type=AuditActionType.TERMINATE_STUDENT,
+        target_entity="USER",
+        target_id=student.id,
+        ip_address=client_ip,
+        details={
+            "student_name": student.full_name,
+            "student_email": student.email,
+            "crn": student.crn_or_roll_number,
+            "previous_status": previous_status,
+            "termination_reason": req.reason
+        }
+    )
+
+    return {
+        "message": f"Student {student.full_name} ({student.crn_or_roll_number}) has been permanently TERMINATED.",
+        "status": student.status,
+        "reason": req.reason
+    }
+
+@router.post("/students/{user_id}/reinstate")
+async def reinstate_student(
+    user_id: str,
+    req: StudentReinstateRequest,
+    request: Request,
+    current_admin: User = Depends(admin_only),
+    db: Session = Depends(get_db)
+):
+    """
+    Admin action to reinstate a previously terminated or suspended student.
+    Restores account status to APPROVED.
+    """
+    student = db.query(User).filter(User.id == user_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student account not found.")
+
+    previous_status = student.status
+    student.status = AccountStatus.APPROVED
+    db.commit()
+
+    client_ip = request.client.host if request.client else "127.0.0.1"
+    audit_service.log_action(
+        db=db,
+        admin_id=current_admin.id,
+        action_type=AuditActionType.REINSTATE_STUDENT,
+        target_entity="USER",
+        target_id=student.id,
+        ip_address=client_ip,
+        details={
+            "student_name": student.full_name,
+            "student_email": student.email,
+            "previous_status": previous_status,
+            "reinstate_reason": req.reason
+        }
+    )
+
+    return {
+        "message": f"Student {student.full_name} has been REINSTATED to APPROVED status.",
+        "status": student.status
+    }

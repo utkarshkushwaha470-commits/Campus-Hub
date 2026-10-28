@@ -8,6 +8,7 @@ from app.models.rating import Rating, RatingStatus, PointsLedger
 from app.models.problem_box import ProblemBoxMessage, ProblemRecipientRole, ProblemStatus
 from app.models.notification import Notification, NotificationTargetType, UserNotificationRead
 from app.models.moderation import Report, ReportTargetType, ReportStatus, ModerationAction, ModerationActionType, UserBlock
+from app.models.group import CampusGroup, GroupMember, GroupMessage, GroupCategory
 
 __all__ = [
     "Base",
@@ -40,4 +41,8 @@ __all__ = [
     "ModerationAction",
     "ModerationActionType",
     "UserBlock",
+    "CampusGroup",
+    "GroupMember",
+    "GroupMessage",
+    "GroupCategory",
 ]

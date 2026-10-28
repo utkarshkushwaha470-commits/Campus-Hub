@@ -7,7 +7,7 @@ from app.config import settings
 from app.database import engine, Base
 from app.routers import (
     auth, admin, dashboard, queries, chat, ratings,
-    problem_box, notifications, moderation
+    problem_box, notifications, moderation, groups
 )
 from app.services.websocket_manager import ws_manager
 
@@ -39,6 +39,7 @@ app.include_router(ratings.router)
 app.include_router(problem_box.router)
 app.include_router(notifications.router)
 app.include_router(moderation.router)
+app.include_router(groups.router)
 
 # Mount local uploads directory
 uploads_dir = os.path.join(settings.STORAGE_LOCAL_DIR, "uploads")

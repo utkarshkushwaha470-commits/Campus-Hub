@@ -168,6 +168,27 @@ export default function DashboardPage({ user, onNavigate }) {
               <span className="group-hover:translate-x-1 transition-transform">→</span>
             </div>
           </div>
+
+          {/* 6. Campus Purpose Groups */}
+          <div 
+            onClick={() => onNavigate('groups')}
+            className="group cursor-pointer rounded-2xl bg-slate-900 border border-slate-800 hover:border-indigo-500/50 p-5 transition-all shadow-lg hover:shadow-indigo-500/10 relative overflow-hidden"
+          >
+            <div className="w-12 h-12 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+              <span className="text-xl">🏛️</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <h4 className="font-bold text-white text-base">Purpose Groups</h4>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-950 text-indigo-300">TASK FORCES</span>
+            </div>
+            <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+              Institutional task forces, placement prep, committees, and project teams formed by college authorities.
+            </p>
+            <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-indigo-400 font-semibold">
+              <span>View Groups & Directives</span>
+              <span className="group-hover:translate-x-1 transition-transform">→</span>
+            </div>
+          </div>
         </div>
       </div>
 

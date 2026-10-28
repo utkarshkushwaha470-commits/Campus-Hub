@@ -131,6 +131,12 @@ async def login(req: LoginRequest, db: Session = Depends(get_db)):
             detail="Incorrect email or password."
         )
 
+    if user.status in [AccountStatus.BANNED, AccountStatus.TERMINATED]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your student account has been terminated by college administration. Access revoked."
+        )
+
     # Admin 2FA check
     if user.role == UserRole.ADMIN and user.is_2fa_enabled:
         if not req.two_factor_code or req.two_factor_code != "888888":  # Default 2FA bypass for admin demo

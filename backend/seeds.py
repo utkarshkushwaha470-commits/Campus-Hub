@@ -7,6 +7,7 @@ from app.models.query import Query, QueryAnswer, QueryVisibility
 from app.models.chat import Thread, Message, ThreadType
 from app.models.notification import Notification, NotificationTargetType
 from app.models.problem_box import ProblemBoxMessage, ProblemRecipientRole, ProblemStatus
+from app.models.group import CampusGroup, GroupMember, GroupMessage, GroupCategory
 from app.services.auth_service import get_password_hash
 
 def run_seed():
@@ -247,6 +248,47 @@ def run_seed():
             db.add_all([msg1, msg2])
             db.commit()
             print("Created sample Direct Message thread with reactions.")
+
+    # 11. Seed sample Special Purpose Group
+    if admin and senior_4th and junior_1st:
+        group = db.query(CampusGroup).filter(CampusGroup.name == "Placement & Career Guidance Cell 2026").first()
+        if not group:
+            group = CampusGroup(
+                id=str(uuid.uuid4()),
+                name="Placement & Career Guidance Cell 2026",
+                purpose="Special administrative committee to mentor graduating seniors, review resumes, and coordinate campus recruitment drives.",
+                category=GroupCategory.PLACEMENT,
+                created_by_admin_id=admin.id,
+                is_active=True
+            )
+            db.add(group)
+            db.commit()
+
+            m1 = GroupMember(id=str(uuid.uuid4()), group_id=group.id, user_id=admin.id, role_in_group="ADMIN")
+            m2 = GroupMember(id=str(uuid.uuid4()), group_id=group.id, user_id=senior_4th.id, role_in_group="LEAD")
+            m3 = GroupMember(id=str(uuid.uuid4()), group_id=group.id, user_id=junior_1st.id, role_in_group="MEMBER")
+            db.add_all([m1, m2, m3])
+            db.commit()
+
+            gmsg1 = GroupMessage(
+                id=str(uuid.uuid4()),
+                group_id=group.id,
+                sender_id=admin.id,
+                sender_name=admin.full_name,
+                sender_role=admin.role,
+                content_text="Welcome to the official College Placement Cell group. All drive circulars and interview preparatory materials will be posted here."
+            )
+            gmsg2 = GroupMessage(
+                id=str(uuid.uuid4()),
+                group_id=group.id,
+                sender_id=senior_4th.id,
+                sender_name=senior_4th.full_name,
+                sender_role=senior_4th.role,
+                content_text="Understood Dean Sir! I will coordinate the mock technical interview schedules for our batch."
+            )
+            db.add_all([gmsg1, gmsg2])
+            db.commit()
+            print("Created sample Special Purpose Group: Placement Cell.")
 
     db.close()
     print("Database seeding completed successfully!")
