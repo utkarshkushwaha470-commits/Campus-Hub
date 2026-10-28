@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-950 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>CampusConnect - College Academic & Peer Guidance Platform</title>
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#4f46e5">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="icon" type="image/svg+xml" href="/api/static/icon.svg">
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- KaTeX for math rendering in doubts & solutions -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <!-- React 18 & Babel for standalone zero-compile fast execution -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: #090d16; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    .safe-bottom { padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px)); }
+    .glass-card { background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+    .role-card-hover:hover { transform: translateY(-2px); border-color: rgba(99, 102, 241, 0.5); }
+  </style>
+</head>
+<body class="h-full antialiased font-sans selection:bg-indigo-500 selection:text-white">
+  <div id="root" class="h-full"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+    const API_BASE = "/api";
+
+    const formatErrorDetail = (detail, fallback = "Operation failed") => {
+      if (!detail) return fallback;
+      if (Array.isArray(detail)) {
+        return detail.map(e => e.msg || e.message || JSON.stringify(e)).join("; ");
+      }
+      if (typeof detail === "object") return JSON.stringify(detail);
+      return String(detail);
+    };
+
+    // Quick Test Personas for rapid evaluation
+    const QUICK_PERSONAS = [
+      { label: "1st Year Student", ident: "CRN-2026-101", pass: "student123", role: "STUDENT_1" },
+      { label: "3rd Year Senior", ident: "CRN-2024-301", pass: "student123", role: "STUDENT_3" },
+      { label: "Faculty (Prof. Sharma)", ident: "FAC-CS-001", pass: "faculty123", role: "FACULTY" },
+      { label: "Passout (Alumni 2024)", ident: "ALU-2024-001", pass: "alumni123", role: "PASSOUT" },
+      { label: "Admin (Dean of Academics)", ident: "admin", pass: "admin123", role: "ADMIN" }
+    ];
+
+    // Flowchart Role Definitions
+    const ROLE_METADATA = {
+      STUDENT_1: {
+        title: "1st Year Student",
+        subtitle: "Build Basics",
+        theme: "from-sky-900/40 to-cyan-900/40 border-cyan-500/30",
+        badge: "bg-cyan-500/20 text-cyan-300 border-cyan-500/40",
+        points: ["Study Resources", "Syllabus & PYQs", "Doubt Support", "Mentor Guidance"]
+      },
+      STUDENT_2: {
+        title: "2nd Year Student",
+        subtitle: "Build Skills",
+        theme: "from-emerald-900/40 to-teal-900/40 border-emerald-500/30",
+        badge: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40",
+        points: ["Subject Guidance", "Notes & PYQs", "Project Ideas", "Faculty Support"]
+      },
+      STUDENT_3: {
+        title: "3rd Year Student",
+        subtitle: "Prepare for Future",
+        theme: "from-amber-900/40 to-yellow-900/40 border-amber-500/30",
+        badge: "bg-amber-500/20 text-amber-300 border-amber-500/40",
+        points: ["Placement Prep", "Technical Skills", "Internship Guidance", "Faculty Mentors"]
+      },
+      STUDENT_4: {
+        title: "4th Year Student",
+        subtitle: "Get Ready for Career",
+        theme: "from-purple-900/40 to-indigo-900/40 border-purple-500/30",
+        badge: "bg-purple-500/20 text-purple-300 border-purple-500/40",
+        points: ["Placements / Higher Studies", "Resume & Interview Prep", "Project Guidance", "Faculty Support"]
+      },
+      PASSOUT: {
+        title: "Passout Student (Alumni)",
+        subtitle: "Guide & Give Back",
+        theme: "from-pink-900/40 to-rose-900/40 border-pink-500/30",
+        badge: "bg-pink-500/20 text-pink-300 border-pink-500/40",
+        points: ["Mentoring Juniors", "Share Experiences", "Career Guidance", "Faculty Collaboration"]
+      },
+      FACULTY: {
+        title: "Faculty Member",
+        subtitle: "Academic Leadership & Mentorship",
+        theme: "from-indigo-900/40 to-blue-900/40 border-indigo-500/30",
+        badge: "bg-indigo-500/20 text-indigo-300 border-indigo-500/40",
+        points: ["Doubt Resolution", "Curriculum Guidance", "Resource Approval", "Research Mentorship"]
+      },
+      ADMIN: {
+        title: "Platform Administrator",
+        subtitle: "Governance & Moderation",
+        theme: "from-slate-900 to-slate-800 border-slate-700",
+        badge: "bg-red-500/20 text-red-300 border-red-500/40",
+        points: ["Verify ID Cards", "Module Creator", "Moderation Queue", "Abuse Monitoring"]
+      }
+    };
+
+    function App() {
+      const [token, setToken] = useState(localStorage.getItem("campusconnect_token") || "");
+      const [currentUser, setCurrentUser] = useState(null);
+      const [view, setView] = useState("auth"); // 'auth', 'role_select', 'dashboard', 'admin'
+      const [authMode, setAuthMode] = useState("login"); // 'login', 'register', 'forgot'
+      const [loading, setLoading] = useState(false);
+      const [errorMsg, setErrorMsg] = useState("");
+      const [successMsg, setSuccessMsg] = useState("");
+      
+      // Admin Queue
+      const [adminQueue, setAdminQueue] = useState([]);
+
+      // Check current user on load
+      useEffect(() => {
+        if (token) {
+          fetchCurrentUser();
+        }
+      }, [token]);
+
+      const fetchCurrentUser = async () => {
+        try {
+          const res = await fetch(`${API_BASE}/auth/me`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            setCurrentUser(data);
+            if (data.role === "ADMIN") {
+              loadAdminQueue();
+            }
+            setView("role_select");
+          } else {
+            handleLogout();
+          }
+        } catch (err) {
+          console.error(err);
+          handleLogout();
+        }
+      };
+
+      const handleLogout = () => {
+        localStorage.removeItem("campusconnect_token");
+        setToken("");
+        setCurrentUser(null);
+        setView("auth");
+        setAuthMode("login");
+      };
+
+      const loadAdminQueue = async () => {
+        try {
+          const res = await fetch(`${API_BASE}/admin/verification-queue`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            setAdminQueue(data);
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      };
+
+      const handleRoleSelection = async (targetRole) => {
+        setErrorMsg("");
+        setSuccessMsg("");
+        try {
+          setLoading(true);
+          const res = await fetch(`${API_BASE}/auth/select-role`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({ selected_role: targetRole })
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            throw new Error(data.detail || "Role selection failed.");
+          }
+          setCurrentUser(data);
+          setSuccessMsg(`Active role set to ${ROLE_METADATA[targetRole]?.title || targetRole}`);
+          setView("dashboard");
+        } catch (err) {
+          setErrorMsg(err.message);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      const handlePurgePhoto = async () => {
+        if (!confirm("Permanently delete your encrypted college ID photo from the server? This cannot be undone.")) return;
+        try {
+          setLoading(true);
+          const res = await fetch(`${API_BASE}/auth/purge-id-photo`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const data = await res.json();
+          if (res.ok) {
+            setSuccessMsg(data.message);
+            fetchCurrentUser();
+          } else {
+            setErrorMsg(formatErrorDetail(data.detail, "Failed to purge ID photo."));
+          }
+        } catch (e) {
+          setErrorMsg(e.message);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      return (
+        <div className="min-h-full flex flex-col bg-slate-950 text-slate-100">
+          {/* Top Navigation Bar */}
+          <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center font-black shadow-lg shadow-indigo-500/20">
+                CC
+              </div>
+              <div>
+                <h1 className="font-bold text-base leading-tight tracking-tight text-white flex items-center gap-1.5">
+                  CampusConnect
+                  <span className="text-[10px] font-semibold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 px-1.5 py-0.5 rounded">
+                    Single-College PWA
+                  </span>
+                </h1>
+                <p className="text-[11px] text-slate-400 font-medium">Apex Institute of Technology</p>
+              </div>
+            </div>
+
+            {currentUser && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setView("role_select")}
+                  className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1.5 rounded-lg border border-slate-700 font-medium transition"
+                  title="Switch Role Dashboard"
+                >
+                  🔄 Roles
+                </button>
+                {currentUser.role === "ADMIN" && (
+                  <button
+                    onClick={() => { setView("admin"); loadAdminQueue(); }}
+                    className="text-xs bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/30 px-2.5 py-1.5 rounded-lg font-medium transition"
+                  >
+                    🛡️ Admin Queue ({adminQueue.length})
+                  </button>
+                )}
+                <button
+                  onClick={handleLogout}
+                  className="text-xs bg-slate-800 hover:bg-slate-700 text-rose-400 border border-slate-700 px-2.5 py-1.5 rounded-lg font-medium transition"
+                >
+                  Logout
+                </button>
+              </div>
+            )}
+          </header>
+
+          {/* Flash Messages */}
+          {errorMsg && (
+            <div className="bg-rose-500/10 border-b border-rose-500/30 text-rose-300 px-4 py-2.5 text-xs flex justify-between items-center animate-fade-in">
+              <span>⚠️ {errorMsg}</span>
+              <button onClick={() => setErrorMsg("")} className="text-rose-400 font-bold ml-2">×</button>
+            </div>
+          )}
+          {successMsg && (
+            <div className="bg-emerald-500/10 border-b border-emerald-500/30 text-emerald-300 px-4 py-2.5 text-xs flex justify-between items-center animate-fade-in">
+              <span>✅ {successMsg}</span>
+              <button onClick={() => setSuccessMsg("")} className="text-emerald-400 font-bold ml-2">×</button>
+            </div>
+          )}
+
+          {/* Main Body */}
+          <main className="flex-1 max-w-4xl w-full mx-auto p-4 safe-bottom">
+            {!currentUser ? (
+              <AuthFlow
+                authMode={authMode}
+                setAuthMode={setAuthMode}
+                setToken={setToken}
+                setCurrentUser={setCurrentUser}
+                setView={setView}
+                setSuccessMsg={setSuccessMsg}
+                setErrorMsg={setErrorMsg}
+              />
+            ) : view === "role_select" ? (
+              <RoleSelectionScreen
+                user={currentUser}
+                onSelectRole={handleRoleSelection}
+                loading={loading}
+                onPurgePhoto={handlePurgePhoto}
+                onProceedToDashboard={() => setView("dashboard")}
+              />
+            ) : view === "admin" ? (
+              <AdminVerificationQueue
+                queue={adminQueue}
+                token={token}
+                onReload={loadAdminQueue}
+                setSuccessMsg={setSuccessMsg}
+                setErrorMsg={setErrorMsg}
+              />
+            ) : (
+              <DashboardPlaceholder
+                user={currentUser}
+                onSelectRoleAgain={() => setView("role_select")}
+              />
+            )}
+          </main>
+        </div>
+      );
+    }
+
+    // -------------------------------------------------------------
+    // Auth Flow: Sign In / Registration with Gemma 4 OCR / OTP
+    // -------------------------------------------------------------
+    function AuthFlow({ authMode, setAuthMode, setToken, setCurrentUser, setView, setSuccessMsg, setErrorMsg }) {
+      const [ident, setIdent] = useState("");
+      const [password, setPassword] = useState("");
+      const [loading, setLoading] = useState(false);
+
+      // Registration fields
+      const [email, setEmail] = useState("");
+      const [otpCode, setOtpCode] = useState("");
+      const [otpSent, setOtpSent] = useState(false);
+      const [crn, setCrn] = useState("");
+      const [fullName, setFullName] = useState("");
+      const [username, setUsername] = useState("");
+      const [regRole, setRegRole] = useState("STUDENT_1");
+      const [department, setDepartment] = useState("Computer Science");
+      const [idFile, setIdFile] = useState(null);
+      const [idPreview, setIdPreview] = useState(null);
+      const [ocrResult, setOcrResult] = useState(null);
+
+      // Forgot password fields
+      const [forgotEmail, setForgotEmail] = useState("");
+      const [forgotOtp, setForgotOtp] = useState("");
+      const [newPass, setNewPass] = useState("");
+
+      const fileInputRef = useRef(null);
+
+      const handleImageSelect = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          setIdFile(file);
+          const reader = new FileReader();
+          reader.onload = () => setIdPreview(reader.result);
+          reader.readAsDataURL(file);
+        }
+      };
+
+      const requestOtp = async (targetEmail, purpose = "REGISTRATION") => {
+        if (!targetEmail) {
+          setErrorMsg("Please enter your Gmail address first.");
+          return;
+        }
+        try {
+          setLoading(true);
+          const res = await fetch(`${API_BASE}/auth/send-otp`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: targetEmail, purpose })
+          });
+          const data = await res.json();
+          if (res.ok) {
+            setOtpSent(true);
+            setSuccessMsg(data.message + (data.debug_otp ? ` [Auto-filled Dev OTP: ${data.debug_otp}]` : ""));
+            if (purpose === "REGISTRATION") setOtpCode(data.debug_otp || "");
+            if (purpose === "FORGOT_PASSWORD") setForgotOtp(data.debug_otp || "");
+          } else {
+            setErrorMsg(formatErrorDetail(data.detail, "Failed to send OTP."));
+          }
+        } catch (e) {
+          setErrorMsg(e.message);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      const handleLogin = async (e) => {
+        e?.preventDefault();
+        setErrorMsg("");
+        setLoading(true);
+        try {
+          const res = await fetch(`${API_BASE}/auth/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ identifier: ident, password })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || "Sign in failed.");
+          
+          localStorage.setItem("campusconnect_token", data.access_token);
+          setToken(data.access_token);
+          setCurrentUser(data.user);
+          setView("role_select");
+          setSuccessMsg(`Welcome back, ${data.user.full_name}!`);
+        } catch (err) {
+          setErrorMsg(err.message);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      const handleRegister = async (e) => {
+        e?.preventDefault();
+        setErrorMsg("");
+        if (!idFile) {
+          setErrorMsg("Please photograph or upload your College ID card.");
+          return;
+        }
+        if (!otpCode) {
+          setErrorMsg("Please verify your Gmail with the 6-digit OTP.");
+          return;
+        }
+
+        setLoading(true);
+        const formData = new FormData();
+        formData.append("email", email);
+        formData.append("otp_code", otpCode);
+        formData.append("username", username);
+        formData.append("password", password);
+        formData.append("full_name", fullName);
+        formData.append("crn", crn);
+        formData.append("role", regRole);
+        formData.append("department", department);
+        formData.append("id_card_image", idFile);
+
+        try {
+          const res = await fetch(`${API_BASE}/auth/register`, {
+            method: "POST",
+            body: formData
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || "Registration failed.");
+
+          setOcrResult({
+            ocr_crn: data.user.ocr_extracted_crn,
+            ocr_name: data.user.ocr_extracted_name,
+            confidence: data.user.ocr_confidence,
+            status: data.user.verification_status,
+            is_verified: data.user.is_verified
+          });
+
+          localStorage.setItem("campusconnect_token", data.access_token);
+          setToken(data.access_token);
+          setCurrentUser(data.user);
+          setView("role_select");
+          setSuccessMsg("Account created! Gemma 4 multimodal OCR verified your ID photo.");
+        } catch (err) {
+          setErrorMsg(err.message);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      const handleForgot = async (e) => {
+        e?.preventDefault();
+        setErrorMsg("");
+        setLoading(true);
+        try {
+          const res = await fetch(`${API_BASE}/auth/forgot-password`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: forgotEmail, otp_code: forgotOtp, new_password: newPass })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || "Failed to reset password.");
+          setSuccessMsg(data.message);
+          setAuthMode("login");
+        } catch (err) {
+          setErrorMsg(err.message);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      const pickTestPersona = (p) => {
+        setIdent(p.ident);
+        setPassword(p.pass);
+      };
+
+      return (
+        <div className="max-w-md mx-auto my-4 space-y-4">
+          {/* Quick Persona Selector for Testing */}
+          <div className="glass-card p-3 rounded-xl border border-indigo-500/20">
+            <div className="text-[11px] font-semibold text-indigo-300 uppercase tracking-wider mb-2 flex items-center justify-between">
+              <span>⚡ Fast 1-Click Test Personas</span>
+              <span className="text-[10px] text-slate-400">Click to fill</span>
+            </div>
+            <div className="grid grid-cols-2 gap-1.5">
+              {QUICK_PERSONAS.map((p, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => pickTestPersona(p)}
+                  className="text-left text-xs bg-slate-800/80 hover:bg-indigo-600/30 hover:border-indigo-500/50 border border-slate-700/80 px-2 py-1.5 rounded-lg transition"
+                >
+                  <div className="font-semibold text-slate-200 truncate">{p.label}</div>
+                  <div className="text-[10px] text-slate-400 font-mono truncate">{p.ident}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Form Card */}
+          <div className="glass-card p-6 rounded-2xl shadow-2xl">
+            {/* Header Tabs */}
+            <div className="flex border-b border-slate-800 mb-5">
+              <button
+                type="button"
+                onClick={() => setAuthMode("login")}
+                className={`flex-1 pb-2.5 text-xs font-semibold tracking-wider uppercase transition ${
+                  authMode === "login"
+                    ? "text-indigo-400 border-b-2 border-indigo-500"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                onClick={() => setAuthMode("register")}
+                className={`flex-1 pb-2.5 text-xs font-semibold tracking-wider uppercase transition ${
+                  authMode === "register"
+                    ? "text-indigo-400 border-b-2 border-indigo-500"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                Register
+              </button>
+            </div>
+
+            {/* LOGIN FORM */}
+            {authMode === "login" && (
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                    Student Sign In (CRN / College ID / Username)
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={ident}
+                    onChange={(e) => setIdent(e.target.value)}
+                    placeholder="e.g. CRN-2026-101 or username"
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">Accepts CRN, College ID number, or Username.</p>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-medium text-slate-300">Password</label>
+                    <button
+                      type="button"
+                      onClick={() => setAuthMode("forgot")}
+                      className="text-[11px] text-indigo-400 hover:underline"
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
+                  <input
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 rounded-xl text-sm transition shadow-lg shadow-indigo-600/30 disabled:opacity-50"
+                >
+                  {loading ? "Signing In..." : "Sign In to CampusConnect"}
+                </button>
+              </form>
+            )}
+
+            {/* REGISTER FORM */}
+            {authMode === "register" && (
+              <form onSubmit={handleRegister} className="space-y-3.5">
+                <div className="bg-indigo-950/40 border border-indigo-500/30 p-2.5 rounded-xl text-[11px] text-indigo-300">
+                  📷 <strong>Gemma 4 Multimodal Auto-Verification:</strong> Upload your official college ID photo. Gemma 4 will OCR and verify your CRN and name in real-time.
+                </div>
+
+                {/* Email + OTP */}
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">Gmail (OTP Verified)</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="name@gmail.com"
+                      className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                    />
+                    <button
+                      type="button"
+                      disabled={loading || !email}
+                      onClick={() => requestOtp(email, "REGISTRATION")}
+                      className="bg-indigo-600/80 hover:bg-indigo-600 text-white text-xs px-3 py-2 rounded-xl whitespace-nowrap font-medium"
+                    >
+                      Get OTP
+                    </button>
+                  </div>
+                </div>
+
+                {otpSent && (
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">Enter 6-digit OTP</label>
+                    <input
+                      type="text"
+                      maxLength={6}
+                      required
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value)}
+                      placeholder="123456"
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs font-mono text-center tracking-widest text-indigo-400 focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                )}
+
+                {/* CRN & Full Name */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">College Roll No (CRN)</label>
+                    <input
+                      type="text"
+                      required
+                      value={crn}
+                      onChange={(e) => setCrn(e.target.value)}
+                      placeholder="e.g. CRN-2026-881"
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white uppercase focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">Full Name</label>
+                    <input
+                      type="text"
+                      required
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="Your full name"
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Username & Password */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">Username</label>
+                    <input
+                      type="text"
+                      required
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      placeholder="unique_username"
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">Password</label>
+                    <input
+                      type="password"
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Role & Department */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">College Role</label>
+                    <select
+                      value={regRole}
+                      onChange={(e) => setRegRole(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                    >
+                      <option value="STUDENT_1">1st Year Student</option>
+                      <option value="STUDENT_2">2nd Year Student</option>
+                      <option value="STUDENT_3">3rd Year Student</option>
+                      <option value="STUDENT_4">4th Year Student</option>
+                      <option value="STUDENT_5">5th Year Student</option>
+                      <option value="PASSOUT">Passout (Alumni)</option>
+                      <option value="FACULTY">Faculty Member</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">Department</label>
+                    <input
+                      type="text"
+                      value={department}
+                      onChange={(e) => setDepartment(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                {/* College ID Card Photo (Camera/Gallery) */}
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                    College ID Card Photo (Camera or Gallery)
+                  </label>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handleImageSelect}
+                    className="hidden"
+                  />
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-2 border-dashed border-slate-700 hover:border-indigo-500 rounded-xl p-3 text-center cursor-pointer bg-slate-900/50 transition flex flex-col items-center justify-center"
+                  >
+                    {idPreview ? (
+                      <div className="space-y-1.5 w-full">
+                        <img src={idPreview} alt="ID Preview" className="h-24 w-auto mx-auto rounded border border-slate-600 object-cover" />
+                        <span className="text-[11px] text-indigo-400 block font-medium">Click to retake or choose different photo</span>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="text-2xl mb-1">📷</div>
+                        <span className="text-xs text-slate-300 font-medium">Tap to snap photo with camera or upload card</span>
+                        <span className="text-[10px] text-slate-500 mt-0.5">Encrypted with AES-256 at rest</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold py-2.5 rounded-xl text-sm transition shadow-lg shadow-indigo-600/30 disabled:opacity-50"
+                >
+                  {loading ? "Gemma 4 Multimodal Verifying..." : "Verify & Create Account"}
+                </button>
+              </form>
+            )}
+
+            {/* FORGOT PASSWORD FORM */}
+            {authMode === "forgot" && (
+              <form onSubmit={handleForgot} className="space-y-3.5">
+                <div className="text-xs text-slate-300">
+                  Enter your registered Gmail to receive a password reset OTP.
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">Email</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="email"
+                      required
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                      placeholder="name@gmail.com"
+                      className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
+                    />
+                    <button
+                      type="button"
+                      disabled={loading || !forgotEmail}
+                      onClick={() => requestOtp(forgotEmail, "FORGOT_PASSWORD")}
+                      className="bg-indigo-600 text-white text-xs px-3 py-2 rounded-xl font-medium"
+                    >
+                      Send OTP
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">Reset OTP Code</label>
+                  <input
+                    type="text"
+                    required
+                    value={forgotOtp}
+                    onChange={(e) => setForgotOtp(e.target.value)}
+                    placeholder="6-digit code"
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs font-mono text-center text-indigo-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">New Password</label>
+                  <input
+                    type="password"
+                    required
+                    value={newPass}
+                    onChange={(e) => setNewPass(e.target.value)}
+                    placeholder="Enter new password"
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAuthMode("login")}
+                    className="flex-1 bg-slate-800 text-slate-300 py-2 rounded-xl text-xs font-medium"
+                  >
+                    Back to Login
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="flex-1 bg-indigo-600 text-white py-2 rounded-xl text-xs font-medium"
+                  >
+                    Reset Password
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // -------------------------------------------------------------
+    // Role Selection Screen (Flowchart Implementation)
+    // -------------------------------------------------------------
+    function RoleSelectionScreen({ user, onSelectRole, loading, onPurgePhoto, onProceedToDashboard }) {
+      const allowedRoles = user.allowed_roles || [user.role];
+
+      return (
+        <div className="space-y-6 max-w-3xl mx-auto my-2">
+          {/* Welcome & Profile Status Banner */}
+          <div className="glass-card p-5 rounded-2xl border border-indigo-500/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-xl font-bold text-white">Welcome, {user.full_name}!</span>
+                {user.is_verified ? (
+                  <span className="text-[11px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    ✓ {user.verification_status}
+                  </span>
+                ) : (
+                  <span className="text-[11px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    ⏳ Pending Admin Review
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-400">
+                CRN: <strong className="text-slate-200">{user.crn}</strong> • Dept: <strong className="text-slate-200">{user.department}</strong> • Rep Score: <strong className="text-indigo-400">{user.reputation_score} pts</strong>
+              </p>
+              {user.ocr_confidence > 0 && (
+                <div className="mt-2 text-[11px] text-slate-400 flex items-center gap-2">
+                  <span>Gemma 4 Multimodal OCR Match Confidence:</span>
+                  <div className="w-24 bg-slate-800 rounded-full h-2 overflow-hidden inline-block">
+                    <div
+                      className="bg-emerald-500 h-2 rounded-full"
+                      style={{ width: `${Math.round(user.ocr_confidence * 100)}%` }}
+                    />
+                  </div>
+                  <span className="font-mono text-emerald-400 font-semibold">{Math.round(user.ocr_confidence * 100)}%</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {user.is_verified && !user.id_photo_deleted && (
+                <button
+                  type="button"
+                  onClick={onPurgePhoto}
+                  className="text-xs bg-slate-800 hover:bg-rose-900/30 text-rose-300 border border-rose-500/30 px-3 py-1.5 rounded-xl font-medium transition"
+                  title="Privacy compliance: purge uploaded ID card photo permanently"
+                >
+                  🗑️ Purge ID Photo
+                </button>
+              )}
+              {user.id_photo_deleted && (
+                <span className="text-[11px] text-slate-400 bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800">
+                  🔒 ID Photo Purged
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={onProceedToDashboard}
+                className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-4 py-1.5 rounded-xl transition shadow-md shadow-indigo-600/20"
+              >
+                Go to Active Dashboard →
+              </button>
+            </div>
+          </div>
+
+          {/* Flowchart Role Selection Header */}
+          <div className="text-center space-y-1">
+            <h2 className="text-lg font-bold text-white tracking-tight">Select Your Role Dashboard</h2>
+            <p className="text-xs text-slate-400">
+              As per college policy, your active view is governed by your verified institutional profile.
+            </p>
+          </div>
+
+          {/* Flowchart 5 Columns / Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            {Object.keys(ROLE_METADATA)
+              .filter(k => k !== "ADMIN" && (k !== "FACULTY" || user.role === "FACULTY" || user.role === "ADMIN"))
+              .map((roleKey) => {
+                const meta = ROLE_METADATA[roleKey];
+                const isAllowed = allowedRoles.includes(roleKey);
+                const isSelected = user.role === roleKey;
+
+                return (
+                  <div
+                    key={roleKey}
+                    onClick={() => {
+                      if (isAllowed) {
+                        onSelectRole(roleKey);
+                      }
+                    }}
+                    className={`rounded-2xl p-4 border transition-all relative flex flex-col justify-between ${meta.theme} ${
+                      isAllowed ? "cursor-pointer role-card-hover" : "opacity-40 cursor-not-allowed filter grayscale-[30%]"
+                    } ${isSelected ? "ring-2 ring-indigo-400 shadow-xl" : ""}`}
+                  >
+                    <div>
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${meta.badge}`}>
+                          {meta.subtitle}
+                        </span>
+                        {isSelected && (
+                          <span className="text-[10px] font-bold bg-indigo-500 text-white px-2 py-0.5 rounded-md">
+                            Active
+                          </span>
+                        )}
+                        {!isAllowed && (
+                          <span className="text-[10px] font-semibold text-slate-400 bg-slate-900/80 px-2 py-0.5 rounded">
+                            🔒 Locked
+                          </span>
+                        )}
+                      </div>
+
+                      <h3 className="font-bold text-sm text-white">{meta.title}</h3>
+
+                      <ul className="mt-3 space-y-1.5 text-xs text-slate-300">
+                        {meta.points.map((pt, i) => (
+                          <li key={i} className="flex items-center gap-1.5">
+                            <span className="text-indigo-400 text-xs">•</span>
+                            <span>{pt}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-xs">
+                      {isAllowed ? (
+                        <button
+                          type="button"
+                          disabled={loading}
+                          className="w-full text-center bg-white/10 hover:bg-white/20 text-white font-medium py-1.5 rounded-lg transition"
+                        >
+                          {isSelected ? "Continue with this View" : "Switch to this View"}
+                        </button>
+                      ) : (
+                        <span className="text-[11px] text-slate-400 text-center w-full">
+                          Only verified {meta.title} can access
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      );
+    }
+
+    // -------------------------------------------------------------
+    // Admin Verification Queue Screen
+    // -------------------------------------------------------------
+    function AdminVerificationQueue({ queue, token, onReload, setSuccessMsg, setErrorMsg }) {
+      const [viewingPhotoUser, setViewingPhotoUser] = useState(null);
+
+      const handleApprove = async (userId, year) => {
+        try {
+          const res = await fetch(`${API_BASE}/admin/users/${userId}/approve?verified_year=${year || 1}`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (res.ok) {
+            setSuccessMsg("Account successfully approved.");
+            onReload();
+          } else {
+            const data = await res.json();
+            setErrorMsg(formatErrorDetail(data.detail, "Approval failed."));
+          }
+        } catch (e) {
+          setErrorMsg(e.message);
+        }
+      };
+
+      const handleReject = async (userId) => {
+        try {
+          const res = await fetch(`${API_BASE}/admin/users/${userId}/reject`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (res.ok) {
+            setSuccessMsg("Account rejected.");
+            onReload();
+          }
+        } catch (e) {
+          setErrorMsg(e.message);
+        }
+      };
+
+      return (
+        <div className="space-y-4 max-w-3xl mx-auto my-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-bold text-white">Manual Verification Review Queue</h2>
+              <p className="text-xs text-slate-400">
+                Accounts with OCR mismatch, low confidence, or faculty/alumni applications requiring institutional approval.
+              </p>
+            </div>
+            <button
+              onClick={onReload}
+              className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-xl border border-slate-700"
+            >
+              🔄 Refresh
+            </button>
+          </div>
+
+          {queue.length === 0 ? (
+            <div className="glass-card p-8 rounded-2xl text-center text-slate-400">
+              <div className="text-3xl mb-2">🎉</div>
+              <p className="text-sm font-semibold text-slate-200">Review queue is empty!</p>
+              <p className="text-xs mt-1">All registered students have been auto-verified by Gemma 4 or reviewed.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {queue.map((u) => (
+                <div key={u.id} className="glass-card p-4 rounded-xl border border-slate-800 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-sm text-white">{u.full_name}</span>
+                        <span className="text-[10px] font-mono bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-1.5 py-0.5 rounded">
+                          {u.crn}
+                        </span>
+                        <span className="text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">
+                          Requested: {u.role}
+                        </span>
+                      </div>
+                      <div className="text-xs text-slate-400 mt-1">
+                        Email: {u.email} • Dept: {u.department}
+                      </div>
+                    </div>
+
+                    <div className="text-right sm:text-right">
+                      <div className="text-[11px] text-slate-400">Gemma 4 OCR Confidence</div>
+                      <div className="font-mono text-xs font-bold text-amber-400">
+                        {Math.round((u.ocr_confidence || 0) * 100)}%
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-900/60 p-2.5 rounded-lg text-xs space-y-1 border border-slate-800">
+                    <div className="text-slate-300">
+                      OCR Extracted CRN: <strong className="font-mono text-amber-300">{u.ocr_extracted_crn || "Not detected"}</strong>
+                    </div>
+                    <div className="text-slate-300">
+                      OCR Extracted Name: <strong>{u.ocr_extracted_name || "Not detected"}</strong>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => setViewingPhotoUser(u)}
+                      className="text-xs bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-indigo-500/30 px-3 py-1.5 rounded-lg"
+                    >
+                      🔍 Decrypt & View ID Photo
+                    </button>
+
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleReject(u.id)}
+                        className="text-xs bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 px-3 py-1.5 rounded-lg font-medium"
+                      >
+                        Reject
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleApprove(u.id, u.verified_year || 1)}
+                        className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-1.5 rounded-lg font-medium"
+                      >
+                        Approve Account
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Decrypted ID Modal */}
+          {viewingPhotoUser && (
+            <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="glass-card max-w-md w-full p-5 rounded-2xl space-y-3">
+                <div className="flex justify-between items-center">
+                  <h3 className="font-bold text-sm text-white">Encrypted ID Photo for {viewingPhotoUser.full_name}</h3>
+                  <button onClick={() => setViewingPhotoUser(null)} className="text-slate-400 hover:text-white font-bold">✕</button>
+                </div>
+                <div className="bg-black rounded-xl p-2 flex justify-center">
+                  <img
+                    src={`${API_BASE}/admin/users/${viewingPhotoUser.id}/id-card-photo`}
+                    alt="Decrypted Student ID"
+                    className="max-h-72 w-auto object-contain rounded"
+                  />
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  Decrypted on-the-fly in server memory for administrator review. Never exposed to public.
+                </p>
+                <button
+                  onClick={() => setViewingPhotoUser(null)}
+                  className="w-full bg-slate-800 hover:bg-slate-700 text-white text-xs py-2 rounded-xl"
+                >
+                  Close Viewer
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // -------------------------------------------------------------
+    // Dashboard Placeholder for Step 1 Confirmation
+    // -------------------------------------------------------------
+    function DashboardPlaceholder({ user, onSelectRoleAgain }) {
+      const meta = ROLE_METADATA[user.role] || ROLE_METADATA.STUDENT_1;
+
+      return (
+        <div className="space-y-5 max-w-2xl mx-auto my-4 text-center">
+          <div className="glass-card p-6 rounded-2xl border border-indigo-500/30 space-y-4">
+            <span className={`inline-block text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full border ${meta.badge}`}>
+              {meta.subtitle}
+            </span>
+            <h2 className="text-2xl font-black text-white">{meta.title} Dashboard</h2>
+            <p className="text-xs text-slate-300 max-w-md mx-auto">
+              Step 1 (Authentication, Gemma 4 Multimodal Verification, and Verified Role Routing) is 100% active!
+            </p>
+
+            <div className="grid grid-cols-2 gap-2 text-left bg-slate-900/60 p-3.5 rounded-xl border border-slate-800 text-xs">
+              <div>
+                <span className="text-slate-400 block text-[10px]">Active User</span>
+                <span className="font-bold text-white">{user.full_name}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 block text-[10px]">Verified Role</span>
+                <span className="font-bold text-indigo-400">{user.role}</span>
+              </div>
+              <div className="mt-2">
+                <span className="text-slate-400 block text-[10px]">CRN</span>
+                <span className="font-mono text-white">{user.crn}</span>
+              </div>
+              <div className="mt-2">
+                <span className="text-slate-400 block text-[10px]">Status</span>
+                <span className="text-emerald-400 font-semibold">{user.verification_status}</span>
+              </div>
+            </div>
+
+            <div className="pt-2 flex flex-col sm:flex-row gap-2 justify-center">
+              <button
+                type="button"
+                onClick={onSelectRoleAgain}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-4 py-2 rounded-xl text-xs transition"
+              >
+                🔄 Switch Role Screen
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
