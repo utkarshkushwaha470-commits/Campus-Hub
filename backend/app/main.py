@@ -1,4 +1,11 @@
 import os
+import sys
+
+# Ensure backend directory is in sys.path regardless of execution directory
+_backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _backend_dir not in sys.path:
+    sys.path.insert(0, _backend_dir)
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -100,3 +107,12 @@ if os.path.exists(frontend_dist):
             os.path.join(frontend_dist, "index.html"),
             headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
         )
+
+if __name__ == "__main__":
+    import uvicorn
+    import webbrowser
+    print("==================================================")
+    print("  Starting CampusConnect Server at http://localhost:8000")
+    print("==================================================")
+    webbrowser.open("http://localhost:8000")
+    uvicorn.run("app.main:app", host="127.0.0.1", port=8000, reload=True)
