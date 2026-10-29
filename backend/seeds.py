@@ -16,6 +16,33 @@ def run_seed():
 
     print("--- Seeding CampusConnect College Database ---")
 
+    # 0. Primary Administrator: Utkarsh Kushwaha
+    utkarsh_admin = db.query(User).filter(User.email == "utkarshkushwaha47@gmail.com").first()
+    if not utkarsh_admin:
+        utkarsh_admin = User(
+            id=str(uuid.uuid4()),
+            email="utkarshkushwaha47@gmail.com",
+            full_name="UTKARSH_KUSHWAHA_2720A",
+            password_hash=get_password_hash("utkarsh222005"),
+            role=UserRole.ADMIN,
+            status=AccountStatus.APPROVED,
+            locked_year=None,
+            batch="ADMIN-DIRECTOR",
+            crn_or_roll_number="2720A",
+            is_2fa_enabled=False,
+            two_factor_secret="888888"
+        )
+        db.add(utkarsh_admin)
+        print("Created Chief Admin: UTKARSH_KUSHWAHA_2720A (utkarshkushwaha47@gmail.com / utkarsh222005)")
+    else:
+        utkarsh_admin.full_name = "UTKARSH_KUSHWAHA_2720A"
+        utkarsh_admin.password_hash = get_password_hash("utkarsh222005")
+        utkarsh_admin.role = UserRole.ADMIN
+        utkarsh_admin.status = AccountStatus.APPROVED
+        utkarsh_admin.crn_or_roll_number = "2720A"
+        utkarsh_admin.is_2fa_enabled = False
+        db.commit()
+
     # 1. Super Admin (Seeded only, strong password + 2FA)
     admin = db.query(User).filter(User.email == "admin@apex.edu").first()
     if not admin:

@@ -130,6 +130,17 @@ export default function LoginPage({ onLoginSuccess, onGoToSignUp }) {
           <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2.5 text-center">
             Instant One-Click Demo Logins
           </p>
+
+          <button
+            type="button"
+            disabled={loading}
+            onClick={() => handleOneClickDemo('utkarshkushwaha47@gmail.com', 'utkarsh222005')}
+            className="w-full mb-2.5 p-2.5 rounded-xl bg-amber-950/60 hover:bg-amber-900/60 border border-amber-600/60 text-amber-300 text-left font-bold transition-all flex items-center justify-between"
+          >
+            <span>👑 Utkarsh Kushwaha (Chief Admin)</span>
+            <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-amber-900 text-amber-200">Director</span>
+          </button>
+
           <div className="grid grid-cols-2 gap-2 text-xs">
             <button
               type="button"
@@ -137,7 +148,7 @@ export default function LoginPage({ onLoginSuccess, onGoToSignUp }) {
               onClick={() => handleOneClickDemo('admin@apex.edu', 'Admin@123', '888888')}
               className="p-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-amber-500/50 text-amber-400 text-left font-medium transition-all"
             >
-              👑 Admin (2FA)
+              👑 Staff Admin (2FA)
             </button>
             <button
               type="button"
