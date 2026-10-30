@@ -4,23 +4,24 @@ import os
 
 from app.database import SessionLocal, Base, engine
 from app.models.user import User, UserRole, AccountStatus
+from app.models.problem_box import ProblemBoxMessage, ProblemRecipientRole, ProblemStatus
+from app.models.query import Query, QueryVisibility
 from app.services.auth_service import get_password_hash
 
 def run_seed():
     """
-    Brogrammers Official Demo & Production Seed Policy:
-    Contains ONLY:
+    Brogrammers Official Demo and Production Seed Policy:
+    Contains:
     1. Chief Administrator (Utkarsh Kushwaha)
-    2. 1 Faculty Demo Account (Dr. Vikram Sharma)
-    3. 4 Student Demo Accounts (Year 1, Year 2, Year 3, Year 4)
-    Zero other fake or mock accounts are generated.
+    2. Company Demo Sandbox personas (Demo Chief, Demo Faculty, Demo Y1-Y4 students)
+    3. Initial verified sample doubts and Problem Box messages
     """
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
 
-    print("--- Brogrammers Presentation & Company Demo Setup ---")
+    print("--- Brogrammers Presentation and Company Demo Setup ---")
 
-    # 1. Chief Administrator: Utkarsh Kushwaha
+    # 1. Real Chief Administrator: Utkarsh Kushwaha
     chief = db.query(User).filter(User.email == "utkarshkushwaha470@gmail.com").first()
     if not chief:
         chief = User(
@@ -36,7 +37,8 @@ def run_seed():
             is_2fa_enabled=False,
             two_factor_secret="888888",
             admin_proof="ujjawal utkarsh 222005",
-            is_chief_admin=True
+            is_chief_admin=True,
+            is_demo=False
         )
         db.add(chief)
     else:
@@ -45,101 +47,196 @@ def run_seed():
         chief.role = UserRole.ADMIN
         chief.admin_proof = "ujjawal utkarsh 222005"
         chief.password_hash = get_password_hash("utkarsh2720A")
+        chief.is_demo = False
 
-    # 2. One Faculty Demo Account
-    faculty = db.query(User).filter(User.email == "faculty.demo@apex.edu").first()
-    if not faculty:
-        faculty = User(
+    # 2. Demo Chief Admin for 1-Click Company Sandbox
+    demo_chief = db.query(User).filter(User.email == "demo.chief@brogrammers.local").first()
+    if not demo_chief:
+        demo_chief = User(
             id=str(uuid.uuid4()),
-            email="faculty.demo@apex.edu",
-            full_name="Dr. Vikram Sharma (Faculty / HOD)",
-            password_hash=get_password_hash("Faculty@123"),
-            role=UserRole.FACULTY,
+            email="demo.chief@brogrammers.local",
+            full_name="Demo Chief Admin (Prototype)",
+            password_hash=get_password_hash("Demo@123"),
+            role=UserRole.ADMIN,
             status=AccountStatus.APPROVED,
             locked_year=None,
-            batch="FACULTY",
-            crn_or_roll_number="FAC-CS-01",
-            points=350,
-            level=4,
-            is_2fa_enabled=False
+            batch="CHIEF-ADMIN",
+            crn_or_roll_number="DEMO-CHIEF-01",
+            is_2fa_enabled=False,
+            admin_proof="demoproof2026",
+            is_chief_admin=True,
+            is_demo=False
         )
-        db.add(faculty)
+        db.add(demo_chief)
     else:
-        faculty.status = AccountStatus.APPROVED
-        faculty.role = UserRole.FACULTY
-        faculty.password_hash = get_password_hash("Faculty@123")
+        demo_chief.is_chief_admin = True
+        demo_chief.status = AccountStatus.APPROVED
+        demo_chief.role = UserRole.ADMIN
+        demo_chief.admin_proof = "demoproof2026"
+        demo_chief.password_hash = get_password_hash("Demo@123")
+        demo_chief.is_demo = False
 
-    # 3. All Year Students Demo Accounts (Years 1 to 4)
-    students = [
+    # 3. Demo Faculty (Dr. Vikram Sharma)
+    faculty_emails = ["demo.faculty@brogrammers.local", "faculty.demo@apex.edu"]
+    for femail in faculty_emails:
+        fac = db.query(User).filter(User.email == femail).first()
+        if not fac:
+            fac = User(
+                id=str(uuid.uuid4()),
+                email=femail,
+                full_name="Dr. Vikram Sharma (Faculty / HOD)",
+                password_hash=get_password_hash("Demo@123"),
+                role=UserRole.FACULTY,
+                status=AccountStatus.APPROVED,
+                locked_year=None,
+                batch="FACULTY",
+                crn_or_roll_number=f"FAC-CS-{femail[:4].upper()}",
+                points=350,
+                level=4,
+                is_2fa_enabled=False,
+                is_demo=False
+            )
+            db.add(fac)
+        else:
+            fac.status = AccountStatus.APPROVED
+            fac.role = UserRole.FACULTY
+            fac.password_hash = get_password_hash("Demo@123")
+            fac.is_demo = False
+
+    # 4. Demo Students (Years 1 to 4)
+    student_personas = [
         {
-            "email": "student.4th@apex.edu",
-            "full_name": "Priya Nair (4th Year Senior)",
-            "password": "Student@123",
-            "locked_year": 4,
+            "emails": ["demo.student4@brogrammers.local", "student.4th@apex.edu"],
+            "name": "Priya Nair (4th Year Senior)",
+            "year": 4,
             "batch": "2023-2027",
-            "crn": "23BCS042",
+            "crn_base": "23BCS042",
             "points": 280,
             "level": 3
         },
         {
-            "email": "student.3rd@apex.edu",
-            "full_name": "Rohit Verma (3rd Year Senior)",
-            "password": "Student@123",
-            "locked_year": 3,
+            "emails": ["demo.student3@brogrammers.local", "student.3rd@apex.edu"],
+            "name": "Rohit Verma (3rd Year Senior)",
+            "year": 3,
             "batch": "2024-2028",
-            "crn": "24BCS089",
+            "crn_base": "24BCS089",
             "points": 190,
             "level": 2
         },
         {
-            "email": "student.2nd@apex.edu",
-            "full_name": "Aarav Mehta (2nd Year Sophomore)",
-            "password": "Student@123",
-            "locked_year": 2,
+            "emails": ["demo.student2@brogrammers.local", "student.2nd@apex.edu"],
+            "name": "Aarav Mehta (2nd Year Sophomore)",
+            "year": 2,
             "batch": "2025-2029",
-            "crn": "25BCS114",
+            "crn_base": "25BCS114",
             "points": 110,
             "level": 2
         },
         {
-            "email": "student.1st@apex.edu",
-            "full_name": "Ananya Sen (1st Year Junior)",
-            "password": "Student@123",
-            "locked_year": 1,
+            "emails": ["demo.student1@brogrammers.local", "student.1st@apex.edu"],
+            "name": "Ananya Sen (1st Year Junior)",
+            "year": 1,
             "batch": "2026-2030",
-            "crn": "26BCS019",
+            "crn_base": "26BCS019",
             "points": 40,
             "level": 1
         }
     ]
 
-    for s in students:
-        st = db.query(User).filter(User.email == s["email"]).first()
-        if not st:
-            st = User(
-                id=str(uuid.uuid4()),
-                email=s["email"],
-                full_name=s["full_name"],
-                password_hash=get_password_hash(s["password"]),
-                role=UserRole.STUDENT,
-                status=AccountStatus.APPROVED,
-                locked_year=s["locked_year"],
-                batch=s["batch"],
-                crn_or_roll_number=s["crn"],
-                points=s["points"],
-                level=s["level"],
-                is_2fa_enabled=False
-            )
-            db.add(st)
-        else:
-            st.status = AccountStatus.APPROVED
-            st.role = UserRole.STUDENT
-            st.locked_year = s["locked_year"]
-            st.password_hash = get_password_hash(s["password"])
+    for sp in student_personas:
+        for semail in sp["emails"]:
+            st = db.query(User).filter(User.email == semail).first()
+            if not st:
+                st = User(
+                    id=str(uuid.uuid4()),
+                    email=semail,
+                    full_name=sp["name"],
+                    password_hash=get_password_hash("Demo@123"),
+                    role=UserRole.STUDENT,
+                    status=AccountStatus.APPROVED,
+                    locked_year=sp["year"],
+                    batch=sp["batch"],
+                    crn_or_roll_number=f"{sp['crn_base']}-{semail[:4].upper()}",
+                    points=sp["points"],
+                    level=sp["level"],
+                    is_2fa_enabled=False,
+                    is_demo=False
+                )
+                db.add(st)
+            else:
+                st.status = AccountStatus.APPROVED
+                st.role = UserRole.STUDENT
+                st.locked_year = sp["year"]
+                st.password_hash = get_password_hash("Demo@123")
+                st.is_demo = False
 
     db.commit()
+
+    # 5. Seed Initial Problem Box Messages if queue is empty
+    problem_count = db.query(ProblemBoxMessage).count()
+    if problem_count == 0:
+        first_student = db.query(User).filter(User.email == "demo.student2@brogrammers.local").first()
+        student_id = first_student.id if first_student else chief.id
+        sample_probs = [
+            ProblemBoxMessage(
+                id=str(uuid.uuid4()),
+                student_id=student_id,
+                recipient_role="DEAN",
+                subject="Hostel B WiFi connectivity drops frequently during exam preparation",
+                content_text="The 2nd floor router in Block B goes offline every evening from 8 PM to 11 PM. It severely disrupts studying for the upcoming mid-semester examinations. Kindly request the IT team to inspect the router.",
+                status="SUBMITTED",
+                ai_safety_flag=False,
+                ai_safety_category="Infrastructure Grievance"
+            ),
+            ProblemBoxMessage(
+                id=str(uuid.uuid4()),
+                student_id=student_id,
+                recipient_role="HOD",
+                subject="Lab 3 Python/AI environment requires PyTorch GPU updates for practicals",
+                content_text="During our Deep Learning laboratory sessions, machines in Lab 3 are missing compatible CUDA drivers for our scheduled coursework experiments.",
+                status="FORWARDED_ANONYMOUSLY",
+                forwarded_to_name="Head of Department (HOD)",
+                ai_safety_flag=False,
+                ai_safety_category="Academic Laboratory Concern"
+            )
+        ]
+        for p in sample_probs:
+            db.add(p)
+        db.commit()
+
+    # 6. Seed Sample Doubts / Queries if empty
+    query_count = db.query(Query).count()
+    if query_count == 0:
+        senior = db.query(User).filter(User.email == "demo.student4@brogrammers.local").first()
+        senior_id = senior.id if senior else chief.id
+        sample_queries = [
+            Query(
+                id=str(uuid.uuid4()),
+                poster_id=senior_id,
+                target_year=3,
+                subject="Computer Networks",
+                title="TCP Congestion Control vs UDP Streaming",
+                content_text="Can someone explain how TCP slow start and congestion avoidance differ when handling video streams compared to UDP with application-level pacing?",
+                visibility=QueryVisibility.PUBLIC,
+                is_resolved=True
+            ),
+            Query(
+                id=str(uuid.uuid4()),
+                poster_id=senior_id,
+                target_year=2,
+                subject="Operating Systems",
+                title="Deadlock Detection Algorithm Implementation",
+                content_text="Looking for a clear Python or C++ walkthrough of Banker's Algorithm with safe sequence generation.",
+                visibility=QueryVisibility.PUBLIC,
+                is_resolved=False
+            )
+        ]
+        for q in sample_queries:
+            db.add(q)
+        db.commit()
+
     db.close()
-    print("Demo setup completed: Chief Admin + Faculty + 4 Year Students verified.")
+    print("Demo setup completed: Chief Admin + Faculty + 4 Year Students verified with active content.")
 
 if __name__ == "__main__":
     run_seed()

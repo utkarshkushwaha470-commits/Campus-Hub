@@ -18,11 +18,8 @@ from app.services.websocket_manager import ws_manager
 router = APIRouter(prefix="/api/problem-box", tags=["Confidential Problem Box"])
 
 def check_demo_protection(user: User):
-    if getattr(user, 'is_demo', False):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail='Prototype Demo Account: This is an interactive read-only demonstration account for project review. Modifying live institutional records is disabled.'
-        )
+    # Allow demo personas to test confidential problem box submissions interactively
+    pass
 
 
 admin_only = require_roles([UserRole.ADMIN])

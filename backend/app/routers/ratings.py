@@ -15,11 +15,8 @@ from app.services.abuse_service import abuse_service
 router = APIRouter(prefix="/api/ratings", tags=["Ratings, Anti-Abuse & Leaderboard"])
 
 def check_demo_protection(user: User):
-    if getattr(user, 'is_demo', False):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail='Prototype Demo Account: This is an interactive read-only demonstration account for project review. Modifying live institutional records is disabled.'
-        )
+    # Allow demo personas to test interactively
+    pass
 
 
 @router.post("/", response_model=RatingResponse)

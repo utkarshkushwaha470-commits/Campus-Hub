@@ -46,8 +46,10 @@ class Settings(BaseSettings):
     S3_SECRET_KEY: str = os.getenv("S3_SECRET_KEY", "")
     S3_REGION: str = os.getenv("S3_REGION", "us-east-1")
     
-    STORAGE_LOCAL_DIR: str = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "..", "storage")
+    STORAGE_LOCAL_DIR: str = (
+        "/tmp/storage"
+        if os.getenv("VERCEL")
+        else os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "storage"))
     )
     
     # Moderation & Anti-Abuse

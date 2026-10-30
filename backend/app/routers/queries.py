@@ -16,11 +16,8 @@ from app.services.websocket_manager import ws_manager
 router = APIRouter(prefix="/api/queries", tags=["Doubts & Query Resolution"])
 
 def check_demo_protection(user: User):
-    if getattr(user, 'is_demo', False):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail='Prototype Demo Account: This is an interactive read-only demonstration account for project review. Modifying live institutional records is disabled.'
-        )
+    # Allow demo personas to test interactively
+    pass
 
 
 @router.post("/ocr-pre-check", response_model=OCRPreCheckResponse)

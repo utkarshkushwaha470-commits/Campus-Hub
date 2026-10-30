@@ -72,6 +72,7 @@ export default function App() {
   // Real-time WebSocket connection for live notifications
   useEffect(() => {
     if (!user || user.status !== 'APPROVED') return;
+    if (window.location.host.includes('vercel.app')) return; // Vercel serverless uses the resilient polling poller
 
     let socket;
     try {

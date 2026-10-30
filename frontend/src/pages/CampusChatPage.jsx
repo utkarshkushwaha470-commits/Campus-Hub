@@ -45,6 +45,12 @@ export default function CampusChatPage({ user }) {
 
     loadThreadMessages(activeThreadId);
 
+    // 4-second polling fallback for serverless cloud environments
+    const pollInterval = setInterval(() => {
+      loadThreadMessages(activeThreadId);
+      loadInbox();
+    }, 4000);
+
     // WebSocket connection to thread room
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws/chat/${activeThreadId}`;
@@ -89,6 +95,7 @@ export default function CampusChatPage({ user }) {
 
     return () => {
       if (ws) ws.close();
+      clearInterval(pollInterval);
     };
   }, [activeThreadId]);
 

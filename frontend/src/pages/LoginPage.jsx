@@ -652,6 +652,36 @@ export default function LoginPage({ onLoginSuccess, onGoToSignUp }) {
               </form>
             ) : (
               /* ================= ADMIN SIGN IN FORM ================= */
+              <>
+              {/* ⚡ ONE-CLICK INSTANT ACCESS FOR CHIEF ADMIN */}
+              <div className="mb-4">
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => handleFastDemoLogin('utkarshkushwaha470@gmail.com', 'utkarsh2720A', true, 'ujjawal utkarsh 222005')}
+                  className="w-full p-3 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-xs md:text-sm shadow-xl shadow-amber-500/20 flex items-center justify-between transition-all group active:scale-[0.99]"
+                >
+                  <div className="flex items-center gap-2.5 text-left">
+                    <span className="text-lg">🛡️</span>
+                    <div>
+                      <div className="font-extrabold text-slate-950 flex items-center gap-1.5">
+                        <span>Chief Admin • UTKARSH KUSHWAHA</span>
+                        <span className="px-1.5 py-0.5 rounded bg-slate-950 text-amber-300 text-[9px] font-black">VERIFIED</span>
+                      </div>
+                      <div className="text-[10px] font-mono text-slate-900 font-semibold">1-Click Instant Institutional Clearance</div>
+                    </div>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-xl bg-slate-950 text-amber-300 text-[10px] font-black tracking-wider uppercase shadow">
+                    Enter Now ➔
+                  </span>
+                </button>
+                <div className="flex items-center gap-2 my-3 text-slate-600 text-[10px]">
+                  <div className="flex-1 h-px bg-slate-800"></div>
+                  <span>or enter administrator credentials manually</span>
+                  <div className="flex-1 h-px bg-slate-800"></div>
+                </div>
+              </div>
+
               <form onSubmit={handleLogin} className="space-y-4">
                 {/* Input 1: Admin Email */}
                 <div>
@@ -793,6 +823,7 @@ export default function LoginPage({ onLoginSuccess, onGoToSignUp }) {
                   </button>
                 </div>
               </form>
+              </>
             )}
 
             <button
