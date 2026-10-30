@@ -217,44 +217,6 @@ export default function LoginPage({ onLoginSuccess, onGoToSignUp }) {
     }
   };
 
-  const handleStudentDemo = async (demoEmail, demoPass) => {
-    setRoleMode('STUDENT');
-    setEmail(demoEmail);
-    setPassword(demoPass);
-    setError(null);
-    setLoading(true);
-    try {
-      const data = await api.login(demoEmail, demoPass, '', false, '');
-      setAuthToken(data.access_token);
-      setCurrentUser(data.user);
-      onLoginSuccess(data.user);
-    } catch (err) {
-      setError(err.message || 'Login failed.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSubAdminDemo = async (demoEmail, demoPass, demoProof) => {
-    setRoleMode('ADMIN');
-    setEmail(demoEmail);
-    setPassword(demoPass);
-    setAdminProof(demoProof);
-    setAdminOtp('123456');
-    setError(null);
-    setLoading(true);
-    try {
-      const data = await api.login(demoEmail, demoPass, '123456', true, demoProof);
-      setAuthToken(data.access_token);
-      setCurrentUser(data.user);
-      onLoginSuccess(data.user);
-    } catch (err) {
-      setError(err.message || 'Sub-Admin demo login failed.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-12">
       <div className={`w-full max-w-md bg-slate-900 border rounded-2xl p-8 shadow-2xl relative overflow-hidden transition-all duration-200 ${
@@ -800,25 +762,6 @@ export default function LoginPage({ onLoginSuccess, onGoToSignUp }) {
               </form>
             )}
 
-            {/* Sub-Admin Demo Fast Access (Leaves Chief Admin strictly manual) */}
-            <div className="pt-2 border-t border-slate-800/80">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 text-center">
-                Sub-Admin Fast Access
-              </p>
-              <button
-                type="button"
-                disabled={loading}
-                onClick={() => handleSubAdminDemo('staff.admin@apex.edu', 'Admin@123', 'staffadmin2026')}
-                className="w-full p-2 rounded-xl bg-slate-950 hover:bg-slate-800 border border-amber-600/40 text-amber-400 text-xs font-semibold flex items-center justify-between transition-all"
-              >
-                <span>🛡️ Staff Admin (Demo Sub-Admin)</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800/50">SUB-ADMIN</span>
-              </button>
-              <p className="text-[10px] text-slate-400 text-center mt-1.5">
-                Chief Administrator (Utkarsh Kushwaha) clearance is strictly manual.
-              </p>
-            </div>
-
             <button
               type="button"
               onClick={() => {
@@ -840,7 +783,7 @@ export default function LoginPage({ onLoginSuccess, onGoToSignUp }) {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="e.g. yourname@apex.edu"
+                placeholder="Enter registered college email"
                 className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               />
             </div>
@@ -891,16 +834,16 @@ export default function LoginPage({ onLoginSuccess, onGoToSignUp }) {
           </form>
         )}
 
-        {/* Student Mode: Admin Option Card + Instant One-Click Demo Logins */}
+        {/* Student Mode: Admin Option Card */}
         {roleMode === 'STUDENT' && (
           <div className="mt-6 pt-5 border-t border-slate-800/80">
             {/* Dedicated Admin Login Section Shortcut */}
-            <div className="mb-4 p-3 rounded-xl bg-gradient-to-r from-amber-950/60 to-slate-950 border border-amber-600/50 flex items-center justify-between">
-              <div className="flex items-center gap-2">
+            <div className="p-3.5 rounded-xl bg-gradient-to-r from-amber-950/60 to-slate-950 border border-amber-600/50 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
                 <span className="text-xl">🛡️</span>
                 <div>
                   <div className="text-xs font-bold text-amber-300">College Administrator?</div>
-                  <div className="text-[11px] text-slate-400">Chief Admin (UTKARSH KUSHWAHA) Manual Access</div>
+                  <div className="text-[11px] text-slate-400">Institutional Administrator & Chief Admin Portal Access</div>
                 </div>
               </div>
               <button
@@ -909,56 +852,9 @@ export default function LoginPage({ onLoginSuccess, onGoToSignUp }) {
                   setRoleMode('ADMIN');
                   setError(null);
                 }}
-                className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black transition-all shadow-md"
+                className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black transition-all shadow-md whitespace-nowrap"
               >
                 Admin Login ➔
-              </button>
-            </div>
-
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2.5 text-center">
-              Instant One-Click Demo Logins
-            </p>
-
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <button
-                type="button"
-                disabled={loading}
-                onClick={() => handleStudentDemo('dr.sharma@apex.edu', 'Faculty@123')}
-                className="p-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-purple-500/50 text-purple-400 text-left font-medium transition-all"
-              >
-                🎓 Dr. Sharma (Faculty)
-              </button>
-              <button
-                type="button"
-                disabled={loading}
-                onClick={() => handleStudentDemo('aravind.pg@apex.edu', 'Student@123')}
-                className="p-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-indigo-500/50 text-indigo-400 text-left font-medium transition-all"
-              >
-                🔬 Aravind (PG / M.Tech)
-              </button>
-              <button
-                type="button"
-                disabled={loading}
-                onClick={() => handleStudentDemo('priya.4th@apex.edu', 'Student@123')}
-                className="p-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-blue-500/50 text-blue-400 text-left font-medium transition-all"
-              >
-                ⭐ Priya (4th Yr Senior)
-              </button>
-              <button
-                type="button"
-                disabled={loading}
-                onClick={() => handleStudentDemo('ananya.1st@apex.edu', 'Student@123')}
-                className="p-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/50 text-emerald-400 text-left font-medium transition-all"
-              >
-                🌱 Ananya (1st Yr Junior)
-              </button>
-              <button
-                type="button"
-                disabled={loading}
-                onClick={() => handleStudentDemo('rahul.pending@apex.edu', 'Student@123')}
-                className="p-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-rose-500/50 text-rose-400 text-left font-medium transition-all col-span-2"
-              >
-                ⏳ Rahul (Pending ID)
               </button>
             </div>
           </div>

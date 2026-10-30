@@ -1,7 +1,8 @@
 import pytest
 from fastapi.testclient import TestClient
 from app.main import app
-from app.database import SessionLocal, Base, engine
+from app.database import Base, get_db
+from tests.conftest import test_engine, TestingSessionLocal
 from app.models.user import User, UserRole, AccountStatus
 from app.models.group import CampusGroup, GroupMember, GroupMessage
 from app.services.auth_service import get_password_hash, create_access_token
@@ -10,8 +11,9 @@ client = TestClient(app)
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_db():
-    Base.metadata.create_all(bind=engine)
-    db = SessionLocal()
+    Base.metadata.create_all(bind=test_engine)
+    app.dependency_overrides[get_db] = lambda: TestingSessionLocal()
+    db = TestingSessionLocal()
 
     # Create admin
     admin = db.query(User).filter(User.email == "test_admin@apex.edu").first()
@@ -95,7 +97,7 @@ def test_admin_terminate_student_and_access_revocation():
     assert term_res.json()["status"] == AccountStatus.TERMINATED
 
     # Verify student status in database
-    db = SessionLocal()
+    db = TestingSessionLocal()
     st = db.query(User).filter(User.id == "student-uuid-201").first()
     assert st.status == AccountStatus.TERMINATED
     db.close()
