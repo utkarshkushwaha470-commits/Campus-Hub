@@ -15,12 +15,12 @@ export default function Navbar({ user, activePage, setActivePage, onLogout }) {
           onClick={() => !isPending && !isRejected && setActivePage('dashboard')}
           className="flex items-center space-x-2.5 cursor-pointer"
         >
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/20">
-            <span className="text-white font-extrabold text-lg">C</span>
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+            <span className="text-white font-extrabold text-lg">B</span>
           </div>
           <div>
             <div className="font-extrabold text-slate-100 text-base leading-tight tracking-tight flex items-center gap-1.5">
-              CampusConnect
+              Brogrammers
               <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-blue-950 text-blue-400 border border-blue-800/50">PWA</span>
             </div>
             <div className="text-[11px] text-slate-400 font-medium">Apex Institute of Technology</div>
@@ -109,13 +109,24 @@ export default function Navbar({ user, activePage, setActivePage, onLogout }) {
                 Admin Queue
               </button>
             )}
+
+            <button
+              onClick={() => setActivePage('settings')}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                activePage === 'settings'
+                  ? 'bg-slate-700 text-white shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              ⚙️ Settings
+            </button>
           </nav>
         )}
 
         {/* User Pill & Logout */}
-        <div className="flex items-center space-x-3">
-          <div className="hidden sm:flex flex-col text-right">
-            <span className="text-xs font-bold text-slate-200">{user.full_name}</span>
+        <div className="flex items-center space-x-2">
+          <div className="hidden sm:flex flex-col text-right cursor-pointer" onClick={() => setActivePage('settings')}>
+            <span className="text-xs font-bold text-slate-200 hover:text-blue-400 transition-colors">{user.full_name}</span>
             <div className="flex items-center justify-end gap-1.5 text-[11px] text-slate-400">
               <span className="px-1.5 py-0.2 rounded bg-slate-800 text-blue-400 font-semibold">{user.role}</span>
               {user.locked_year ? (
@@ -125,6 +136,16 @@ export default function Navbar({ user, activePage, setActivePage, onLogout }) {
               )}
             </div>
           </div>
+
+          <button
+            onClick={() => setActivePage('settings')}
+            className={`p-2 text-xs font-medium rounded-lg transition-all ${
+              activePage === 'settings' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'
+            }`}
+            title="Account Settings"
+          >
+            ⚙️
+          </button>
 
           <button
             onClick={onLogout}

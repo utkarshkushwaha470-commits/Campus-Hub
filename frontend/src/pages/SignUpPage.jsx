@@ -2,9 +2,18 @@ import React, { useState } from 'react';
 import { api, setAuthToken, setCurrentUser } from '../services/api';
 
 export default function SignUpPage({ onSignUpSuccess, onGoToLogin }) {
+  // Mode: 'STUDENT' | 'ADMIN'
+  const [regMode, setRegMode] = useState('STUDENT');
+
+  // Shared Fields
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
   const [password, setPassword] = useState('');
+
+  // Admin Field
+  const [adminProof, setAdminProof] = useState('');
+
+  // Student Fields
   const [batch, setBatch] = useState('2026-2030');
   const [requestedYear, setRequestedYear] = useState(1);
   const [crn, setCrn] = useState('');
@@ -14,7 +23,7 @@ export default function SignUpPage({ onSignUpSuccess, onGoToLogin }) {
   const [photoPreview, setPhotoPreview] = useState(null);
 
   const [otpSent, setOtpSent] = useState(false);
-  const [devOtpHint, setDevOtpHint] = useState(null);
+  const [deviceOtp, setDeviceOtp] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -25,14 +34,15 @@ export default function SignUpPage({ onSignUpSuccess, onGoToLogin }) {
     }
     setError(null);
     try {
-      const res = await api.sendOtp(email);
+      const res = await api.sendOtp(email.trim());
       setOtpSent(true);
-      if (res.dev_otp) {
-        setDevOtpHint(res.dev_otp);
-        setOtp(res.dev_otp); // Auto-fill for seamless user testing
+      const code = res.device_scoped_otp || res.dev_otp;
+      if (code) {
+        setDeviceOtp(code);
+        setOtp(code); // Scoped to this browser device only
       }
     } catch (err) {
-      setError(err.message || 'Failed to dispatch email OTP.');
+      setError(err.message || 'Failed to dispatch email verification code.');
     }
   };
 
@@ -46,31 +56,51 @@ export default function SignUpPage({ onSignUpSuccess, onGoToLogin }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!idPhoto) {
-      setError('Please upload your official college physical ID card photo.');
-      return;
-    }
     setError(null);
     setLoading(true);
 
     try {
-      const formData = new FormData();
-      formData.append('email', email);
-      formData.append('full_name', fullName);
-      formData.append('password', password);
-      formData.append('batch', batch);
-      formData.append('requested_year', requestedYear);
-      formData.append('crn_or_roll_number', crn);
-      formData.append('role', role);
-      formData.append('otp', otp);
-      formData.append('id_card', idPhoto);
+      if (regMode === 'ADMIN') {
+        if (!adminProof.trim()) {
+          setError('Administrator security proof passphrase is required.');
+          setLoading(false);
+          return;
+        }
 
-      const res = await api.signup(formData);
-      setAuthToken(res.access_token);
-      setCurrentUser(res.user);
-      onSignUpSuccess(res.user);
+        const res = await api.adminSignup({
+          email: email.trim(),
+          full_name: fullName.trim(),
+          password: password,
+          admin_proof: adminProof.trim()
+        });
+        setAuthToken(res.access_token);
+        setCurrentUser(res.user);
+        onSignUpSuccess(res.user);
+      } else {
+        if (!idPhoto) {
+          setError('Please upload your official college physical ID card photo.');
+          setLoading(false);
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append('email', email.trim());
+        formData.append('full_name', fullName.trim());
+        formData.append('password', password);
+        formData.append('batch', batch);
+        formData.append('requested_year', requestedYear);
+        formData.append('crn_or_roll_number', crn.trim());
+        formData.append('role', role);
+        formData.append('otp', otp);
+        formData.append('id_card', idPhoto);
+
+        const res = await api.signup(formData);
+        setAuthToken(res.access_token);
+        setCurrentUser(res.user);
+        onSignUpSuccess(res.user);
+      }
     } catch (err) {
-      setError(err.message || 'Registration failed. Check details.');
+      setError(err.message || 'Registration failed. Please check inputs.');
     } finally {
       setLoading(false);
     }
@@ -78,196 +108,234 @@ export default function SignUpPage({ onSignUpSuccess, onGoToLogin }) {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-10">
-      <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-7 shadow-2xl">
-        <div className="text-center mb-5">
-          <div className="inline-flex w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 items-center justify-center text-white font-bold text-lg mb-2 shadow-lg shadow-blue-500/25">
-            C
+      <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl">
+        {/* Brand Header */}
+        <div className="text-center mb-6">
+          <div className="inline-flex w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 items-center justify-center text-white font-extrabold text-2xl mb-3 shadow-lg shadow-indigo-500/30">
+            B
           </div>
-          <h2 className="text-xl font-bold text-white">College ID Verification Sign Up</h2>
-          <p className="text-xs text-slate-400">One ID / CRN = One Account • Admin Verified</p>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Join Brogrammers</h1>
+          <p className="text-xs text-slate-400 mt-1">Apex Institute of Technology • Account Enrollment</p>
+        </div>
+
+        {/* Role Mode Selector: Admin or Student */}
+        <div className="mb-6 p-1 bg-slate-950 rounded-xl border border-slate-800 grid grid-cols-2 gap-1">
+          <button
+            type="button"
+            onClick={() => {
+              setRegMode('STUDENT');
+              setError(null);
+            }}
+            className={`py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+              regMode === 'STUDENT'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <span>🎓 Student Registration</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setRegMode('ADMIN');
+              setError(null);
+            }}
+            className={`py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+              regMode === 'ADMIN'
+                ? 'bg-amber-500 text-slate-950 shadow-sm font-extrabold'
+                : 'text-slate-400 hover:text-amber-400'
+            }`}
+          >
+            <span>🛡️ Admin Clearance Registration</span>
+          </button>
         </div>
 
         {error && (
-          <div className="mb-4 p-3 rounded-xl bg-red-950/60 border border-red-800 text-red-300 text-xs">
-            {error}
+          <div className="mb-5 p-3 rounded-xl bg-red-950/60 border border-red-800 text-red-300 text-xs flex items-center gap-2">
+            <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>{error}</span>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Full Name & CRN */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Full Legal Name</label>
-              <input
-                type="text"
-                required
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="e.g. Ananya Sen"
-                className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:border-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">CRN / Roll Number</label>
-              <input
-                type="text"
-                required
-                value={crn}
-                onChange={(e) => setCrn(e.target.value)}
-                placeholder="e.g. CRN-2026-105"
-                className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:border-blue-500"
-              />
-            </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">Full Legal Name</label>
+            <input
+              type="text"
+              required
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder={regMode === 'ADMIN' ? 'UTKARSH KUSHWAHA' : 'e.g. Ananya Sen'}
+              className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 text-xs focus:border-blue-500 outline-none"
+            />
           </div>
 
-          {/* Email & OTP */}
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">College Email Address</label>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">Email Address</label>
             <div className="flex gap-2">
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="yourname@apex.edu"
-                className="flex-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                placeholder={regMode === 'ADMIN' ? 'utkarshkushwaha470@gmail.com' : 'yourname@apex.edu'}
+                className="flex-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 text-xs focus:border-blue-500 outline-none"
               />
-              <button
-                type="button"
-                onClick={handleSendOtp}
-                className="px-3 py-2 rounded-xl bg-blue-600/30 hover:bg-blue-600/40 text-blue-300 font-semibold text-xs border border-blue-500/40 whitespace-nowrap"
-              >
-                {otpSent ? 'Resend OTP' : 'Send OTP'}
-              </button>
+              {regMode === 'STUDENT' && (
+                <button
+                  type="button"
+                  onClick={handleSendOtp}
+                  className="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all"
+                >
+                  {otpSent ? 'Resend' : 'Send OTP'}
+                </button>
+              )}
             </div>
-            {devOtpHint && (
-              <span className="text-[10px] text-emerald-400 mt-1 block">
-                ✓ OTP dispatched to email. Verification Code: <strong className="font-mono">{devOtpHint}</strong>
-              </span>
+
+            {/* Device-Scoped Verification Badge (Safe & Scoped to this browser tab) */}
+            {regMode === 'STUDENT' && deviceOtp && (
+              <div className="mt-2 p-2.5 rounded-xl bg-emerald-950/40 border border-emerald-800/60 text-emerald-300 text-[11px] flex items-center justify-between">
+                <span>🔒 Security Code (Scoped to this device only): <strong className="font-mono text-white text-xs">{deviceOtp}</strong></span>
+                <span className="text-[10px] uppercase font-bold text-emerald-400">Auto-Filled</span>
+              </div>
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Email 6-digit OTP</label>
-              <input
-                type="text"
-                required
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                placeholder="Enter 6-digit OTP"
-                className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:border-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Password</label>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:border-blue-500"
-              />
-            </div>
-          </div>
-
-          {/* Batch & Year */}
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Role</label>
-              <select
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                className="w-full px-2.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:border-blue-500"
-              >
-                <option value="STUDENT">Student (UG)</option>
-                <option value="PG">Postgrad (PG)</option>
-                <option value="FACULTY">Faculty</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Batch</label>
-              <input
-                type="text"
-                required
-                value={batch}
-                onChange={(e) => setBatch(e.target.value)}
-                placeholder="2026-2030"
-                className="w-full px-2.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:border-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Year</label>
-              <select
-                value={requestedYear}
-                onChange={(e) => setRequestedYear(Number(e.target.value))}
-                className="w-full px-2.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:border-blue-500"
-              >
-                <option value={1}>1st Year</option>
-                <option value={2}>2nd Year</option>
-                <option value={3}>3rd Year</option>
-                <option value={4}>4th Year</option>
-              </select>
-            </div>
-          </div>
-
-          {/* ID Card Upload with preview */}
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">
-              Upload Physical College ID Card Photo
-            </label>
-            <div className="border-2 border-dashed border-slate-800 hover:border-slate-700 rounded-xl p-4 text-center bg-slate-950/50">
+            <label className="block text-xs font-semibold text-slate-300 mb-1">Password</label>
+            <input
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 text-xs focus:border-blue-500 outline-none"
+            />
+          </div>
+
+          {/* ADMIN-SPECIFIC REGISTRATION FIELD */}
+          {regMode === 'ADMIN' ? (
+            <div className="p-3.5 rounded-xl bg-amber-950/30 border border-amber-500/40 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-amber-300">
+                  Institutional Security Proof Passphrase <span className="text-rose-400">*</span>
+                </label>
+                <span className="text-[10px] font-mono text-amber-400/80">Clearance Required</span>
+              </div>
               <input
-                type="file"
-                accept="image/*"
-                onChange={handleFileChange}
-                className="hidden"
-                id="id-card-input"
+                type="text"
+                required
+                value={adminProof}
+                onChange={(e) => setAdminProof(e.target.value)}
+                placeholder="e.g. ujjawal utkarsh 222005"
+                className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-amber-800/80 text-amber-300 placeholder-amber-700/60 text-xs font-mono focus:border-amber-400 outline-none"
               />
-              <label htmlFor="id-card-input" className="cursor-pointer block">
-                {photoPreview ? (
-                  <div className="flex flex-col items-center">
-                    <img src={photoPreview} alt="Preview" className="h-28 object-contain rounded-lg border border-slate-700 mb-2" />
-                    <span className="text-[11px] text-blue-400 font-medium">Click to select different photo</span>
-                  </div>
-                ) : (
-                  <div>
-                    <svg className="w-8 h-8 mx-auto text-slate-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <span className="text-xs text-slate-300 font-semibold">Tap to capture or upload student ID card</span>
-                    <span className="block text-[10px] text-slate-500 mt-0.5">Encrypted at rest • Used solely for admin verification</span>
+              <p className="text-[11px] text-slate-400 leading-tight">
+                Enter the secret institutional proof passphrase to activate your Administrator account.
+              </p>
+            </div>
+          ) : (
+            /* STUDENT-SPECIFIC REGISTRATION FIELDS */
+            <>
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Device Verification OTP</label>
+                <input
+                  type="text"
+                  required
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
+                  placeholder="Enter 6-digit code sent to your device"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:border-blue-500 outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Batch</label>
+                  <input
+                    type="text"
+                    required
+                    value={batch}
+                    onChange={(e) => setBatch(e.target.value)}
+                    placeholder="2026-2030"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:border-blue-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Academic Year</label>
+                  <select
+                    value={requestedYear}
+                    onChange={(e) => setRequestedYear(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:border-blue-500 outline-none"
+                  >
+                    <option value={1}>1st Year (Junior)</option>
+                    <option value={2}>2nd Year</option>
+                    <option value={3}>3rd Year (Senior)</option>
+                    <option value={4}>4th Year (Senior)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">College CRN / Roll Number</label>
+                <input
+                  type="text"
+                  required
+                  value={crn}
+                  onChange={(e) => setCrn(e.target.value)}
+                  placeholder="e.g. CRN-2026-105"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:border-blue-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Upload Physical College ID Card Photo
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  required
+                  onChange={handleFileChange}
+                  className="w-full text-xs text-slate-400 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-500 cursor-pointer"
+                />
+                {photoPreview && (
+                  <div className="mt-2.5 p-2 bg-slate-950 rounded-xl border border-slate-800 max-h-36 overflow-hidden flex items-center justify-center">
+                    <img src={photoPreview} alt="ID Preview" className="max-h-32 object-contain rounded" />
                   </div>
                 )}
-              </label>
-            </div>
-          </div>
-
-          <div className="p-2.5 rounded-lg bg-blue-950/30 border border-blue-900/50 text-[11px] text-blue-300 flex items-start gap-2">
-            <span className="text-blue-400 font-bold">ℹ</span>
-            <span>
-              <strong>Gemma 4 Pre-Check Active:</strong> The AI multimodal engine will cross-check your name, batch, and year from the ID photo to provide a match hint. The college admin holds final decision authority and locks your year.
-            </span>
-          </div>
+              </div>
+            </>
+          )}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition-all shadow-lg shadow-blue-600/25 disabled:opacity-50"
+            className={`w-full py-3 rounded-xl font-bold text-xs transition-all shadow-lg disabled:opacity-50 mt-2 ${
+              regMode === 'ADMIN'
+                ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-amber-500/25'
+                : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/25'
+            }`}
           >
-            {loading ? 'Submitting & Running Gemma 4 Pre-Check...' : 'Submit for Admin ID Verification'}
+            {loading
+              ? 'Processing Registration...'
+              : regMode === 'ADMIN'
+              ? 'Register & Activate Administrator Account'
+              : 'Submit ID Verification & Sign Up'}
           </button>
         </form>
 
-        <div className="mt-4 text-center">
-          <button
-            type="button"
-            onClick={onGoToLogin}
-            className="text-xs text-slate-400 hover:text-slate-200"
-          >
-            Already have an account? <span className="text-blue-400 font-semibold">Sign In</span>
-          </button>
+        <div className="mt-6 text-center">
+          <p className="text-xs text-slate-400">
+            Already have an account?{' '}
+            <button onClick={onGoToLogin} className="text-blue-400 hover:underline font-semibold">
+              Sign In
+            </button>
+          </p>
         </div>
       </div>
     </div>

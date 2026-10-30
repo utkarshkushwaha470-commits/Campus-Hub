@@ -51,9 +51,31 @@ export const api = {
     method: 'POST',
     body: formData
   }),
-  login: (email, password, twoFactorCode) => request('/auth/login', {
+  login: (email, password, twoFactorCode, isAdminMode = false, adminProof = '') => request('/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ email, password, two_factor_code: twoFactorCode })
+    body: JSON.stringify({
+      email,
+      password,
+      two_factor_code: twoFactorCode,
+      is_admin_mode: isAdminMode,
+      admin_proof: adminProof
+    })
+  }),
+  adminSignup: (data) => request('/auth/admin-signup', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  }),
+  updateProfile: (data) => request('/auth/profile', {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  }),
+  changePassword: (data) => request('/auth/change-password', {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  }),
+  updateAdminProof: (currentProof, newProof) => request('/auth/admin-proof', {
+    method: 'PUT',
+    body: JSON.stringify({ current_proof: currentProof, new_proof: newProof })
   }),
   resubmitId: (formData) => request('/auth/resubmit-id', {
     method: 'POST',

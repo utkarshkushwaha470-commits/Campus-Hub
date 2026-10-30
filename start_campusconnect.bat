@@ -1,7 +1,7 @@
 @echo off
-title CampusConnect Local Server
+title Brogrammers Local Server
 echo ========================================================
-echo   Launching CampusConnect PWA Server
+echo   Launching Brogrammers PWA Server
 echo   College: Apex Institute of Technology
 echo   Opening: http://localhost:8000
 echo ========================================================

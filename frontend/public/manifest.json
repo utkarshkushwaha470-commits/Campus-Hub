@@ -1,6 +1,6 @@
 {
-  "name": "CampusConnect - Official College PWA",
-  "short_name": "CampusConnect",
+  "name": "Brogrammers - Official College PWA",
+  "short_name": "Brogrammers",
   "description": "ID-verified peer doubt resolution, year sections, anonymous Problem Box, and instant college alerts.",
   "start_url": "/",
   "display": "standalone",

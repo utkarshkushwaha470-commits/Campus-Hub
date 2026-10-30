@@ -11,6 +11,7 @@ import AdminVerificationPage from './pages/AdminVerificationPage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import CampusChatPage from './pages/CampusChatPage';
 import CampusGroupsPage from './pages/CampusGroupsPage';
+import SettingsPage from './pages/SettingsPage';
 import { getCurrentUser, removeAuthToken, removeCurrentUser } from './services/api';
 
 export default function App() {
@@ -143,6 +144,9 @@ export default function App() {
         )}
         {activePage === 'admin-portal' && user.role === 'ADMIN' && (
           <AdminVerificationPage user={user} />
+        )}
+        {activePage === 'settings' && (
+          <SettingsPage user={user} onUserUpdated={(updated) => setUser(updated)} />
         )}
       </main>
 

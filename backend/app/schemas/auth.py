@@ -23,6 +23,27 @@ class LoginRequest(BaseModel):
     email: str
     password: str
     two_factor_code: Optional[str] = None
+    is_admin_mode: Optional[bool] = False
+    admin_proof: Optional[str] = None
+
+class UpdateProfileRequest(BaseModel):
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    batch: Optional[str] = None
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+class UpdateAdminProofRequest(BaseModel):
+    current_proof: str
+    new_proof: str
+
+class AdminSignUpRequest(BaseModel):
+    email: str
+    full_name: str
+    password: str
+    admin_proof: str
 
 class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)

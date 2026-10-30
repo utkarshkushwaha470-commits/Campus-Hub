@@ -22,7 +22,7 @@ os.chdir(backend_dir)
 if __name__ == "__main__":
     import uvicorn
     print("==================================================================")
-    print("  * CampusConnect PWA Server")
+    print("  * Brogrammers PWA Server")
     print("  * College: Apex Institute of Technology")
     print("  * URL: http://localhost:8000")
     print("  * Press Ctrl+C to stop the server.")

@@ -2,7 +2,7 @@ import os
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str = "CampusConnect"
+    PROJECT_NAME: str = "Brogrammers"
     COLLEGE_NAME: str = "Apex Institute of Technology"
     COLLEGE_DOMAIN: str = "apex.edu"
     
