@@ -25,6 +25,7 @@ class LoginRequest(BaseModel):
     two_factor_code: Optional[str] = None
     is_admin_mode: Optional[bool] = False
     admin_proof: Optional[str] = None
+    otp: Optional[str] = None
 
 class UpdateProfileRequest(BaseModel):
     full_name: Optional[str] = None
@@ -44,6 +45,7 @@ class AdminSignUpRequest(BaseModel):
     full_name: str
     password: str
     admin_proof: str
+    otp: Optional[str] = None
 
 class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)

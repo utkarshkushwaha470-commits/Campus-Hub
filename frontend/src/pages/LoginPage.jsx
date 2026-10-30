@@ -9,6 +9,10 @@ export default function LoginPage({ onLoginSuccess, onGoToSignUp }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [adminProof, setAdminProof] = useState('');
+  const [adminOtp, setAdminOtp] = useState('');
+  const [adminOtpSent, setAdminOtpSent] = useState(false);
+  const [adminDeviceOtp, setAdminDeviceOtp] = useState(null);
+  const [sendingOtp, setSendingOtp] = useState(false);
 
   // Visibility toggle states
   const [showPassword, setShowPassword] = useState(false);
@@ -17,12 +21,40 @@ export default function LoginPage({ onLoginSuccess, onGoToSignUp }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  const handleSendAdminOtp = async () => {
+    if (!email.trim()) {
+      setError('Please provide your Administrator email address first.');
+      return;
+    }
+    setError(null);
+    setSendingOtp(true);
+    try {
+      const res = await api.sendOtp(email.trim());
+      setAdminOtpSent(true);
+      const code = res.device_scoped_otp || res.dev_otp;
+      if (code) {
+        setAdminDeviceOtp(code);
+        setAdminOtp(code);
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to dispatch email verification OTP.');
+    } finally {
+      setSendingOtp(false);
+    }
+  };
+
   const handleLogin = async (e) => {
     if (e) e.preventDefault();
     setError(null);
     setLoading(true);
 
     const isAdmin = roleMode === 'ADMIN';
+
+    if (isAdmin && !adminOtp.trim()) {
+      setError('Email Verification OTP is required. Click "Send OTP" to verify your email.');
+      setLoading(false);
+      return;
+    }
 
     if (isAdmin && !adminProof.trim()) {
       setError('Administrator Security Proof passphrase is required.');
@@ -34,7 +66,7 @@ export default function LoginPage({ onLoginSuccess, onGoToSignUp }) {
       const data = await api.login(
         email.trim(),
         password,
-        '',
+        isAdmin ? adminOtp.trim() : '',
         isAdmin,
         isAdmin ? adminProof.trim() : ''
       );
@@ -71,10 +103,11 @@ export default function LoginPage({ onLoginSuccess, onGoToSignUp }) {
     setEmail(demoEmail);
     setPassword(demoPass);
     setAdminProof(demoProof);
+    setAdminOtp('123456');
     setError(null);
     setLoading(true);
     try {
-      const data = await api.login(demoEmail, demoPass, '', true, demoProof);
+      const data = await api.login(demoEmail, demoPass, '123456', true, demoProof);
       setAuthToken(data.access_token);
       setCurrentUser(data.user);
       onLoginSuccess(data.user);
@@ -163,13 +196,45 @@ export default function LoginPage({ onLoginSuccess, onGoToSignUp }) {
               <label className="block text-xs font-semibold text-slate-300 mb-1.5">
                 Administrator Email
               </label>
+              <div className="flex gap-2">
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter admin email address"
+                  className="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-950 border border-amber-600/50 text-slate-100 placeholder-slate-600 text-sm focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400"
+                />
+                <button
+                  type="button"
+                  onClick={handleSendAdminOtp}
+                  disabled={sendingOtp}
+                  className="px-3.5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black transition-all shadow-md whitespace-nowrap disabled:opacity-50"
+                >
+                  {sendingOtp ? 'Sending...' : adminOtpSent ? 'Resend' : 'Send OTP'}
+                </button>
+              </div>
+
+              {adminDeviceOtp && (
+                <div className="mt-2 p-2.5 rounded-xl bg-emerald-950/40 border border-emerald-800/60 text-emerald-300 text-[11px] flex items-center justify-between">
+                  <span>🔒 Verification Code (Dispatched to {email}): <strong className="font-mono text-white text-xs">{adminDeviceOtp}</strong></span>
+                  <span className="text-[10px] uppercase font-bold text-emerald-400">Auto-Filled</span>
+                </div>
+              )}
+            </div>
+
+            {/* Email Verification OTP Field */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                Email Verification OTP <span className="text-amber-400">*</span>
+              </label>
               <input
-                type="email"
+                type="text"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter admin email address"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-amber-600/50 text-slate-100 placeholder-slate-600 text-sm focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400"
+                value={adminOtp}
+                onChange={(e) => setAdminOtp(e.target.value)}
+                placeholder="Enter 6-digit OTP code sent to your email"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-amber-600/50 text-slate-100 placeholder-slate-600 text-sm focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 font-mono"
               />
             </div>
 

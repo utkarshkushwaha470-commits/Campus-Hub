@@ -13,6 +13,10 @@ export default function SignUpPage({ onSignUpSuccess, onGoToLogin }) {
   // Admin Field
   const [adminProof, setAdminProof] = useState('');
 
+  // Visibility toggle states
+  const [showPassword, setShowPassword] = useState(false);
+  const [showProof, setShowProof] = useState(false);
+
   // Student Fields
   const [batch, setBatch] = useState('2026-2030');
   const [requestedYear, setRequestedYear] = useState(1);
@@ -28,8 +32,8 @@ export default function SignUpPage({ onSignUpSuccess, onGoToLogin }) {
   const [error, setError] = useState(null);
 
   const handleSendOtp = async () => {
-    if (!email) {
-      setError('Please provide your college email first.');
+    if (!email.trim()) {
+      setError('Please provide your email address first.');
       return;
     }
     setError(null);
@@ -61,8 +65,18 @@ export default function SignUpPage({ onSignUpSuccess, onGoToLogin }) {
 
     try {
       if (regMode === 'ADMIN') {
+        if (!otp.trim()) {
+          setError('Email Verification OTP is required. Please verify your email.');
+          setLoading(false);
+          return;
+        }
         if (!adminProof.trim()) {
-          setError('Administrator security proof passphrase is required.');
+          setError('Please create your Administrator Security Proof passphrase.');
+          setLoading(false);
+          return;
+        }
+        if (adminProof.trim().length < 3) {
+          setError('Security proof passphrase must be at least 3 characters.');
           setLoading(false);
           return;
         }
@@ -71,7 +85,8 @@ export default function SignUpPage({ onSignUpSuccess, onGoToLogin }) {
           email: email.trim(),
           full_name: fullName.trim(),
           password: password,
-          admin_proof: adminProof.trim()
+          admin_proof: adminProof.trim(),
+          otp: otp.trim()
         });
         setAuthToken(res.access_token);
         setCurrentUser(res.user);
@@ -168,90 +183,108 @@ export default function SignUpPage({ onSignUpSuccess, onGoToLogin }) {
               required
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              placeholder={regMode === 'ADMIN' ? 'UTKARSH KUSHWAHA' : 'e.g. Ananya Sen'}
+              placeholder={regMode === 'ADMIN' ? 'e.g. Raj Sharma' : 'e.g. Ananya Sen'}
               className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 text-xs focus:border-blue-500 outline-none"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">Email Address</label>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">
+              {regMode === 'ADMIN' ? 'Administrator Email Address' : 'College Email Address'}
+            </label>
             <div className="flex gap-2">
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder={regMode === 'ADMIN' ? 'utkarshkushwaha470@gmail.com' : 'yourname@apex.edu'}
+                placeholder={regMode === 'ADMIN' ? 'e.g. admin@apex.edu' : 'yourname@apex.edu'}
                 className="flex-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 text-xs focus:border-blue-500 outline-none"
               />
-              {regMode === 'STUDENT' && (
-                <button
-                  type="button"
-                  onClick={handleSendOtp}
-                  className="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all"
-                >
-                  {otpSent ? 'Resend' : 'Send OTP'}
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={handleSendOtp}
+                className="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all whitespace-nowrap"
+              >
+                {otpSent ? 'Resend' : 'Send OTP'}
+              </button>
             </div>
 
-            {/* Device-Scoped Verification Badge (Safe & Scoped to this browser tab) */}
-            {regMode === 'STUDENT' && deviceOtp && (
+            {/* Device-Scoped Verification Badge */}
+            {deviceOtp && (
               <div className="mt-2 p-2.5 rounded-xl bg-emerald-950/40 border border-emerald-800/60 text-emerald-300 text-[11px] flex items-center justify-between">
-                <span>🔒 Security Code (Scoped to this device only): <strong className="font-mono text-white text-xs">{deviceOtp}</strong></span>
+                <span>🔒 Verification Code (Dispatched to {email}): <strong className="font-mono text-white text-xs">{deviceOtp}</strong></span>
                 <span className="text-[10px] uppercase font-bold text-emerald-400">Auto-Filled</span>
               </div>
             )}
           </div>
 
+          {/* Email Verification OTP Field for both Admin and Student */}
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">Password</label>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">
+              Email Verification OTP <span className="text-rose-400">*</span>
+            </label>
             <input
-              type="password"
+              type="text"
+              required
+              value={otp}
+              onChange={(e) => setOtp(e.target.value)}
+              placeholder="Enter 6-digit OTP code sent to email"
+              className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-600 text-xs focus:border-blue-500 outline-none font-mono"
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-semibold text-slate-300">Password</label>
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="text-[11px] text-blue-400 hover:text-blue-300"
+              >
+                {showPassword ? '🙈 Hide' : '👁️ Show'}
+              </button>
+            </div>
+            <input
+              type={showPassword ? 'text' : 'password'}
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 text-xs focus:border-blue-500 outline-none"
+              className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-600 text-xs focus:border-blue-500 outline-none font-mono"
             />
           </div>
 
-          {/* ADMIN-SPECIFIC REGISTRATION FIELD */}
+          {/* ADMIN-SPECIFIC REGISTRATION FIELD (MASKED INPUT WITH CUSTOM PROOF CREATION) */}
           {regMode === 'ADMIN' ? (
             <div className="p-3.5 rounded-xl bg-amber-950/30 border border-amber-500/40 space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-amber-300">
-                  Institutional Security Proof Passphrase <span className="text-rose-400">*</span>
+                  Create Security Proof Passphrase <span className="text-rose-400">*</span>
                 </label>
-                <span className="text-[10px] font-mono text-amber-400/80">Clearance Required</span>
+                <button
+                  type="button"
+                  onClick={() => setShowProof(!showProof)}
+                  className="text-[11px] text-amber-400 hover:text-amber-300 font-mono"
+                >
+                  {showProof ? '🙈 Hide' : '👁️ Show'}
+                </button>
               </div>
               <input
-                type="text"
+                type={showProof ? 'text' : 'password'}
                 required
                 value={adminProof}
                 onChange={(e) => setAdminProof(e.target.value)}
-                placeholder="e.g. ujjawal utkarsh 222005"
-                className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-amber-800/80 text-amber-300 placeholder-amber-700/60 text-xs font-mono focus:border-amber-400 outline-none"
+                placeholder="••••••••"
+                className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-amber-800/80 text-amber-300 placeholder-slate-600 text-xs font-mono focus:border-amber-400 outline-none"
               />
               <p className="text-[11px] text-slate-400 leading-tight">
-                Enter the secret institutional proof passphrase to activate your Administrator account.
+                Create your own confidential security proof passphrase. You will use this passphrase whenever signing into the Administrator portal.
               </p>
             </div>
           ) : (
             /* STUDENT-SPECIFIC REGISTRATION FIELDS */
             <>
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Device Verification OTP</label>
-                <input
-                  type="text"
-                  required
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                  placeholder="Enter 6-digit code sent to your device"
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:border-blue-500 outline-none"
-                />
-              </div>
-
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">Batch</label>

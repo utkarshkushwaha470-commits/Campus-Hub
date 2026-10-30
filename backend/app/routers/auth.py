@@ -1,3 +1,4 @@
+import uuid
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -154,6 +155,20 @@ async def login(req: LoginRequest, db: Session = Depends(get_db)):
                 detail="Invalid Administrator Security Proof verification passphrase."
             )
 
+        # Email Verification OTP for Administrator Login
+        otp_to_verify = req.two_factor_code or getattr(req, "otp", None)
+        if otp_to_verify:
+            if not verify_otp(user.email, otp_to_verify.strip()):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid or expired Email Verification OTP."
+                )
+        elif req.is_admin_mode:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email Verification OTP is required. Please click 'Send OTP' to verify your email."
+            )
+
     if user.email.lower() == "utkarshkushwaha470@gmail.com":
         user.is_chief_admin = True
 
@@ -169,27 +184,46 @@ async def admin_signup(
     req: AdminSignUpRequest,
     db: Session = Depends(get_db)
 ):
-    """Admin registration gateway guarded by institutional security proof."""
-    system_admin = db.query(User).filter(User.role == UserRole.ADMIN).first()
-    expected_proof = (system_admin.admin_proof if system_admin and system_admin.admin_proof else "ujjawal utkarsh 222005").strip()
-
-    if req.admin_proof.strip() != expected_proof and req.admin_proof.strip() != "ujjawal utkarsh 222005":
+    """
+    Admin registration gateway where new admins configure their own security proof
+    and verify their email via OTP.
+    """
+    # 1. OTP Verification
+    if req.otp:
+        if not verify_otp(req.email.strip().lower(), req.otp.strip()):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or expired Email Verification OTP."
+            )
+    else:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid Institutional Security Proof for Administrator account registration."
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email Verification OTP is required for Administrator registration. Click 'Send OTP' to verify."
         )
 
+    # 2. Check Security Proof Passphrase
+    if not req.admin_proof or len(req.admin_proof.strip()) < 3:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Security Proof Passphrase is required (minimum 3 characters)."
+        )
+
+    # 3. Check existing user
     existing = db.query(User).filter(User.email == req.email.strip().lower()).first()
     if existing:
-        if existing.role == UserRole.ADMIN:
-            existing.full_name = req.full_name.strip()
-            existing.password_hash = get_password_hash(req.password)
-            existing.admin_proof = req.admin_proof.strip()
-            db.commit()
-            db.refresh(existing)
-            token = create_access_token({"sub": existing.id, "role": existing.role})
-            return {"access_token": token, "token_type": "bearer", "user": existing}
-        raise HTTPException(status_code=400, detail="An account with this email already exists.")
+        existing.role = UserRole.ADMIN
+        existing.status = AccountStatus.APPROVED
+        existing.full_name = req.full_name.strip()
+        existing.password_hash = get_password_hash(req.password)
+        existing.admin_proof = req.admin_proof.strip()
+        if req.email.strip().lower() == "utkarshkushwaha470@gmail.com":
+            existing.is_chief_admin = True
+        db.commit()
+        db.refresh(existing)
+        token = create_access_token({"sub": existing.id, "role": existing.role})
+        return {"access_token": token, "token_type": "bearer", "user": existing}
+
+    is_chief = req.email.strip().lower() == "utkarshkushwaha470@gmail.com"
 
     new_admin = User(
         id=str(uuid.uuid4()),
@@ -199,10 +233,11 @@ async def admin_signup(
         role=UserRole.ADMIN,
         status=AccountStatus.APPROVED,
         locked_year=None,
-        batch="ADMIN-HEAD",
-        crn_or_roll_number="2720A",
+        batch="ADMIN-HEAD" if is_chief else "STAFF-ADMIN",
+        crn_or_roll_number="2720A" if is_chief else f"ADM-{uuid.uuid4().hex[:6].upper()}",
         is_2fa_enabled=False,
-        admin_proof=req.admin_proof.strip()
+        admin_proof=req.admin_proof.strip(),
+        is_chief_admin=is_chief
     )
     db.add(new_admin)
     db.commit()

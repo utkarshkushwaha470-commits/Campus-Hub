@@ -13,6 +13,8 @@ export default function AdminVerificationPage({ user, onUserUpdated }) {
   const [newAdminEmail, setNewAdminEmail] = useState('');
   const [newAdminPassword, setNewAdminPassword] = useState('');
   const [newAdminProof, setNewAdminProof] = useState('');
+  const [showNewAdminPassword, setShowNewAdminPassword] = useState(false);
+  const [showNewAdminProof, setShowNewAdminProof] = useState(false);
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [adminActionLoading, setAdminActionLoading] = useState(false);
 
@@ -1914,11 +1916,20 @@ export default function AdminVerificationPage({ user, onUserUpdated }) {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Initial Password <span className="text-amber-400">*</span>
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-slate-300">
+                    Initial Password <span className="text-amber-400">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowNewAdminPassword(!showNewAdminPassword)}
+                    className="text-[11px] text-amber-400 hover:text-amber-300"
+                  >
+                    {showNewAdminPassword ? '🙈 Hide' : '👁️ Show'}
+                  </button>
+                </div>
                 <input
-                  type="password"
+                  type={showNewAdminPassword ? 'text' : 'password'}
                   required
                   value={newAdminPassword}
                   onChange={(e) => setNewAdminPassword(e.target.value)}
@@ -1928,11 +1939,20 @@ export default function AdminVerificationPage({ user, onUserUpdated }) {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Assigned Security Proof Passphrase <span className="text-amber-400">*</span>
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-slate-300">
+                    Assigned Security Proof Passphrase <span className="text-amber-400">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowNewAdminProof(!showNewAdminProof)}
+                    className="text-[11px] text-amber-400 hover:text-amber-300 font-mono"
+                  >
+                    {showNewAdminProof ? '🙈 Hide' : '👁️ Show'}
+                  </button>
+                </div>
                 <input
-                  type="password"
+                  type={showNewAdminProof ? 'text' : 'password'}
                   required
                   value={newAdminProof}
                   onChange={(e) => setNewAdminProof(e.target.value)}
