@@ -239,21 +239,33 @@ export default function LoginPage({ onLoginSuccess, onGoToSignUp }) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-12">
-      <div className={`w-full max-w-md bg-slate-900 border rounded-2xl p-8 shadow-2xl relative overflow-hidden transition-all duration-200 ${
-        roleMode === 'ADMIN' ? 'border-amber-500/60 shadow-amber-500/10' : 'border-slate-800'
+    <div className="min-h-screen flex items-center justify-center px-4 py-12 relative overflow-hidden">
+      {/* Ambient glowing atmosphere */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-gradient-to-tr from-blue-600/15 via-indigo-600/15 to-purple-600/15 rounded-full blur-3xl pointer-events-none"></div>
+      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+      <div className={`w-full max-w-md bg-slate-900/85 backdrop-blur-xl border rounded-3xl p-8 shadow-2xl relative overflow-hidden transition-all duration-300 z-10 ${
+        roleMode === 'ADMIN' ? 'border-amber-500/50 shadow-amber-500/10' : 'border-slate-800/80 shadow-indigo-500/10'
       }`}>
         {/* Brand Header */}
-        <div className="text-center mb-6">
-          <div className={`inline-flex w-12 h-12 rounded-2xl items-center justify-center font-black text-2xl mb-3 shadow-lg ${
+        <div className="text-center mb-7 relative">
+          <div className={`inline-flex w-14 h-14 rounded-2xl items-center justify-center font-black text-2xl mb-3 shadow-xl transition-all ring-4 ${
             roleMode === 'ADMIN' 
-              ? 'bg-gradient-to-tr from-amber-500 to-yellow-500 text-slate-950 shadow-amber-500/30'
-              : 'bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 text-white shadow-indigo-500/30'
+              ? 'bg-gradient-to-tr from-amber-500 via-yellow-500 to-amber-600 text-slate-950 shadow-amber-500/30 ring-amber-500/25'
+              : 'bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 text-white shadow-indigo-500/35 ring-indigo-500/25'
           }`}>
-            {roleMode === 'ADMIN' ? '🛡️' : 'B'}
+            {roleMode === 'ADMIN' ? '🛡️' : 'C'}
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Campus Hub</h1>
-          <p className="text-xs text-slate-400 mt-1">Allenhouse Institute of Technology • Single College Portal</p>
+          <h1 className="text-2xl font-black text-white tracking-tight flex items-center justify-center gap-2">
+            <span>Campus Hub</span>
+            <span className="text-[10px] uppercase font-black tracking-wider px-2 py-0.5 rounded-full bg-blue-950/80 text-blue-400 border border-blue-800/60 shadow-sm">
+              PWA
+            </span>
+          </h1>
+          <p className="text-xs text-slate-400 mt-1 flex items-center justify-center gap-1.5 font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span>Allenhouse Institute of Technology • Single College Portal</span>
+          </p>
         </div>
 
         {/* Section Selector: Student or Admin */}

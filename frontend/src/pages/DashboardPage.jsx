@@ -39,20 +39,59 @@ export default function DashboardPage({ user, onNavigate }) {
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500 text-slate-950">
                 Institutional Control
               </span>
-              <span className="text-xs text-amber-300 font-bold">• Chief Administrator</span>
+              <span className="text-xs text-amber-300 font-bold">
+                • {user.is_chief_admin ? 'Chief Administrator Utkarsh Kushwaha' : 'Institutional Administrator'}
+              </span>
             </div>
             <h3 className="text-xl font-black text-white flex items-center gap-2">
               <span>🛡️ Administrator Command Center</span>
             </h3>
             <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
-              Full administrative authority active for <strong>{user.full_name}</strong>. Manage and terminate student accounts, create special-purpose student groups, approve ID verifications, and monitor security problem box reports.
+              Full administrative authority active for <strong>{user.full_name}</strong>. Manage student enrollments, create purpose groups, review problem box reports, and oversee college operations.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2.5">
+            {user.is_chief_admin && (
+              <button
+                onClick={() => onNavigate('chief-faculty-chat')}
+                className="px-4 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs shadow-lg shadow-purple-600/25 transition-all flex items-center gap-2"
+              >
+                <span>💬 Faculty Direct Chat</span>
+              </button>
+            )}
+            <button
+              onClick={() => onNavigate('admin-portal')}
+              className="px-5 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-sm shadow-lg shadow-amber-500/25 transition-all flex items-center gap-2 flex-shrink-0"
+            >
+              <span>🛡️ Enter Admin Portal</span>
+              <span>➔</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Faculty Quick Access Direct Chat Banner */}
+      {user.role === 'FACULTY' && (
+        <div className="rounded-2xl bg-gradient-to-r from-purple-950/70 via-slate-900 to-indigo-950/50 border border-purple-500/50 p-6 shadow-xl shadow-purple-500/10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-600 text-white shadow-sm">
+                Faculty Executive Channel
+              </span>
+              <span className="text-xs text-purple-300 font-bold">• Allenhouse Institute of Technology</span>
+            </div>
+            <h3 className="text-xl font-black text-white flex items-center gap-2">
+              <span>💬 Direct Chat with Chief Administrator</span>
+            </h3>
+            <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
+              Official personal line open with <strong>UTKARSH KUSHWAHA</strong>. Consult directly on academic approvals, department requirements, and executive clearances.
             </p>
           </div>
           <button
-            onClick={() => onNavigate('admin-portal')}
-            className="px-5 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-sm shadow-lg shadow-amber-500/25 transition-all flex items-center gap-2 flex-shrink-0"
+            onClick={() => onNavigate('chief-chat')}
+            className="px-5 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-sm shadow-lg shadow-purple-600/25 transition-all flex items-center gap-2 flex-shrink-0"
           >
-            <span>🛡️ Enter Admin Portal</span>
+            <span>💬 Open Chief Admin Chat</span>
             <span>➔</span>
           </button>
         </div>

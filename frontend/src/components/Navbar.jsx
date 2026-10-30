@@ -47,8 +47,8 @@ export default function Navbar({ user, activePage, setActivePage, onLogout, hasU
           onClick={() => !isPending && !isRejected && setActivePage('dashboard')}
           className="flex items-center space-x-2.5 cursor-pointer"
         >
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-            <span className="text-white font-extrabold text-lg">B</span>
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/30 ring-2 ring-indigo-500/30">
+            <span className="text-white font-black text-lg tracking-tight">C</span>
           </div>
           <div>
             <div className="font-extrabold text-slate-100 text-base leading-tight tracking-tight flex items-center gap-1.5">
