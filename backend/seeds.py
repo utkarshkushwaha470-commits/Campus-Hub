@@ -20,6 +20,36 @@ def run_seed():
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
 
+    # Auto-load all 29 accounts from all_users_dump.json
+    dump_path = os.path.join(os.path.dirname(__file__), "all_users_dump.json")
+    if os.path.exists(dump_path):
+        import json
+        try:
+            with open(dump_path, "r", encoding="utf-8") as df:
+                users_list = json.load(df)
+            for du in users_list:
+                existing = db.query(User).filter(User.email == du["email"].lower()).first()
+                if not existing:
+                    u = User(
+                        id=du.get("id") or str(uuid.uuid4()),
+                        email=du["email"].lower(),
+                        full_name=du["full_name"],
+                        password_hash=get_password_hash("Demo@123"),
+                        role=du.get("role", "STUDENT"),
+                        status=AccountStatus.APPROVED,
+                        locked_year=du.get("locked_year"),
+                        batch=du.get("batch") or "2024-2028",
+                        crn_or_roll_number=du.get("crn_or_roll_number") or "CRN-DEMO",
+                        points=du.get("points", 50),
+                        level=du.get("level", 1),
+                        admin_proof=du.get("admin_proof") or "ujjawal utkarsh 222005",
+                        is_chief_admin=du.get("is_chief_admin", False)
+                    )
+                    db.add(u)
+            db.commit()
+        except Exception as e:
+            print("Dump load notice:", e)
+
     print("--- Brogrammers Presentation and Company Demo Setup ---")
 
     # 1. Real Chief Administrator: Utkarsh Kushwaha
