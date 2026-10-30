@@ -21,6 +21,13 @@ from app.services.websocket_manager import ws_manager
 # Create database tables automatically
 Base.metadata.create_all(bind=engine)
 
+# Auto-seed essential chief admin and demo accounts
+try:
+    from seeds import run_seed
+    run_seed()
+except Exception as e:
+    pass
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     description="Responsive, mobile-first PWA for campus query resolution, peer ratings, and confidential problem box.",
