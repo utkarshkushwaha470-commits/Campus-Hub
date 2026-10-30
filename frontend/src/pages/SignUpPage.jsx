@@ -137,7 +137,7 @@ export default function SignUpPage({ onSignUpSuccess, onGoToLogin }) {
             B
           </div>
           <h1 className="text-2xl font-bold text-white tracking-tight">Join Brogrammers</h1>
-          <p className="text-xs text-slate-400 mt-1">Apex Institute of Technology • Account Enrollment</p>
+          <p className="text-xs text-slate-400 mt-1">Allenhouse Institute of Technology • Account Enrollment</p>
         </div>
 
         {/* Role Mode Selector: Admin or Student */}

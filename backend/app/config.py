@@ -6,7 +6,7 @@ _default_db = os.path.join(_backend_dir, "campusconnect.db").replace("\\", "/")
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Brogrammers"
-    COLLEGE_NAME: str = "Apex Institute of Technology"
+    COLLEGE_NAME: str = "Allenhouse Institute of Technology"
     COLLEGE_DOMAIN: str = "apex.edu"
     
     # Database (always points to persistent database in backend directory)

@@ -253,7 +253,7 @@ export default function LoginPage({ onLoginSuccess, onGoToSignUp }) {
             {roleMode === 'ADMIN' ? '🛡️' : 'B'}
           </div>
           <h1 className="text-2xl font-bold text-white tracking-tight">Brogrammers</h1>
-          <p className="text-xs text-slate-400 mt-1">Apex Institute of Technology • Single College Portal</p>
+          <p className="text-xs text-slate-400 mt-1">Allenhouse Institute of Technology • Single College Portal</p>
         </div>
 
         {/* Section Selector: Student or Admin */}

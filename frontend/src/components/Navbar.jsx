@@ -23,7 +23,7 @@ export default function Navbar({ user, activePage, setActivePage, onLogout }) {
               Brogrammers
               <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-blue-950 text-blue-400 border border-blue-800/50">PWA</span>
             </div>
-            <div className="text-[11px] text-slate-400 font-medium">Apex Institute of Technology</div>
+            <div className="text-[11px] text-slate-400 font-medium">Allenhouse Institute of Technology</div>
           </div>
         </div>
 
