@@ -1,8 +1,20 @@
 import os
+import shutil
 from pydantic_settings import BaseSettings
 
 _backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 _default_db = os.path.join(_backend_dir, "campusconnect.db").replace("\\", "/")
+
+# On Vercel Serverless (read-only filesystem), copy SQLite DB to /tmp so writes succeed
+if os.getenv("VERCEL") and not os.getenv("DATABASE_URL"):
+    _tmp_db = "/tmp/campusconnect.db"
+    if not os.path.exists(_tmp_db) and os.path.exists(_default_db):
+        try:
+            shutil.copy2(_default_db, _tmp_db)
+        except Exception:
+            pass
+    _default_db = _tmp_db
+
 _raw_db = os.getenv("DATABASE_URL", f"sqlite:///{_default_db}")
 if _raw_db.startswith("postgres://"):
     _raw_db = _raw_db.replace("postgres://", "postgresql://", 1)
@@ -22,7 +34,6 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours
     
     # Google Gemma 4 Service
-    # Endpoint can point to Google Vertex AI, HuggingFace TGI, vLLM, or Gemini proxy
     GEMMA4_API_KEY: str = os.getenv("GEMMA4_API_KEY", "")
     GEMMA4_API_URL: str = os.getenv("GEMMA4_API_URL", "https://api.google.com/gemma4/v1")
     GEMMA4_MODEL_NAME: str = os.getenv("GEMMA4_MODEL_NAME", "gemma-4-multimodal")
@@ -47,5 +58,6 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         extra = "allow"
+
 
 settings = Settings()
