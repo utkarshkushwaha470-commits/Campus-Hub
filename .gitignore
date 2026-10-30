@@ -56,3 +56,6 @@ frontend/.vite/
 *.swo
 .DS_Store
 Thumbs.db
+
+cloudflared.exe
+*.exe
