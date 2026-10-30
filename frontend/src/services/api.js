@@ -65,6 +65,10 @@ export const api = {
     method: 'POST',
     body: JSON.stringify(data)
   }),
+  forgotPasswordLogin: (data) => request('/auth/forgot-password-login', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  }),
   updateProfile: (data) => request('/auth/profile', {
     method: 'PUT',
     body: JSON.stringify(data)
@@ -240,6 +244,12 @@ export const api = {
   }),
   deleteAdmin: (adminId) => request(`/admin/delete-admin/${adminId}`, {
     method: 'DELETE'
+  }),
+  approveAdminRequest: (adminId) => request(`/admin/approve-admin-request/${adminId}`, {
+    method: 'POST'
+  }),
+  rejectAdminRequest: (adminId) => request(`/admin/reject-admin-request/${adminId}`, {
+    method: 'POST'
   }),
   getAdminsWorkDossier: (adminId = '') => request(`/admin/admins-work-dossier${adminId ? `?admin_id=${adminId}` : ''}`),
   sendChiefMessage: (data) => request('/admin/chief-message', {

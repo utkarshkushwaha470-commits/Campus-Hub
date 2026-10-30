@@ -27,6 +27,11 @@ class LoginRequest(BaseModel):
     admin_proof: Optional[str] = None
     otp: Optional[str] = None
 
+class ForgotPasswordLoginRequest(BaseModel):
+    email: str
+    otp: str
+    new_password: Optional[str] = None
+
 class UpdateProfileRequest(BaseModel):
     full_name: Optional[str] = None
     email: Optional[str] = None
@@ -68,6 +73,8 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserResponse
+    message: Optional[str] = None
+    status: Optional[str] = None
 
 class IDVerificationResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)

@@ -5,7 +5,7 @@ from app.database import get_db
 from app.models.user import User, AccountStatus, UserRole
 from app.models.id_verification import IDVerification, IDVerificationStatus
 from app.schemas.auth import (
-    OTPRequest, OTPVerifyRequest, LoginRequest,
+    OTPRequest, OTPVerifyRequest, LoginRequest, ForgotPasswordLoginRequest,
     UserResponse, TokenResponse, IDVerificationResponse,
     UpdateProfileRequest, ChangePasswordRequest, UpdateAdminProofRequest,
     AdminSignUpRequest
@@ -16,6 +16,8 @@ from app.services.auth_service import (
 )
 from app.services.storage_service import storage_service
 from app.services.ai_service import ai_service
+from app.services.audit_service import audit_service
+from app.models.admin_audit_log import AuditActionType
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication & Sign Up"])
 
@@ -128,34 +130,45 @@ async def signup_student(
 async def login(req: LoginRequest, db: Session = Depends(get_db)):
     """User Login with role verification and institutional security proof for Administrator clearance."""
     user = db.query(User).filter(User.email == req.email.lower().strip()).first()
-    if not user or not verify_password(req.password, user.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password."
-        )
 
-    if user.status in [AccountStatus.BANNED, AccountStatus.TERMINATED]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Your student account has been terminated by college administration. Access revoked."
-        )
-
-    # Admin Mode & Security Proof Clearance Check
-    if req.is_admin_mode or user.role == UserRole.ADMIN:
+    # Detailed diagnosis if in Admin Mode
+    if req.is_admin_mode:
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"No administrator account found with email '{req.email.strip()}'. Please register for Administrator Clearance below to send your request to Chief Admin Utkarsh Kushwaha."
+            )
         if user.role != UserRole.ADMIN:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access Denied: This account does not possess institutional Administrator clearance."
+                detail="This email belongs to a student account. Please use the Student Login tab or apply for administrator clearance."
             )
-
+        if user.status == AccountStatus.PENDING:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Your Administrator clearance request has been sent to Chief Administrator UTKARSH KUSHWAHA and is currently PENDING review. You will receive access once approved."
+            )
+        if user.status in [AccountStatus.BANNED, AccountStatus.TERMINATED]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Your administrator credentials have been revoked by institutional administration."
+            )
+        if user.status == AccountStatus.REJECTED:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Your Administrator clearance request was not approved by Chief Administrator."
+            )
+        if not verify_password(req.password, user.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect password for this administrator account."
+            )
         expected_proof = (user.admin_proof or "ujjawal utkarsh 222005").strip()
         if not req.admin_proof or req.admin_proof.strip() != expected_proof:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid Administrator Security Proof verification passphrase."
             )
-
-        # Email Verification OTP for Administrator Login
         otp_to_verify = req.two_factor_code or getattr(req, "otp", None)
         if otp_to_verify:
             if not verify_otp(user.email, otp_to_verify.strip()):
@@ -163,10 +176,23 @@ async def login(req: LoginRequest, db: Session = Depends(get_db)):
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid or expired Email Verification OTP."
                 )
-        elif req.is_admin_mode:
+        else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email Verification OTP is required. Please click 'Send OTP' to verify your email."
+            )
+    else:
+        # Student Login Flow
+        if not user or not verify_password(req.password, user.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect email or password."
+            )
+
+        if user.status in [AccountStatus.BANNED, AccountStatus.TERMINATED]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Your student account has been terminated by college administration. Access revoked."
             )
 
     if user.email.lower() == "utkarshkushwaha470@gmail.com":
@@ -179,6 +205,65 @@ async def login(req: LoginRequest, db: Session = Depends(get_db)):
         "user": user
     }
 
+@router.post("/forgot-password-login", response_model=TokenResponse)
+async def forgot_password_login(req: ForgotPasswordLoginRequest, db: Session = Depends(get_db)):
+    """
+    Direct login and optional password reset via Email OTP.
+    If valid OTP is provided, the user is authenticated and allowed to enter their account.
+    If a new password is provided, their account password is updated.
+    """
+    clean_email = req.email.strip().lower()
+    user = db.query(User).filter(User.email == clean_email).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No registered account found with email '{req.email}'."
+        )
+
+    if user.status in [AccountStatus.BANNED, AccountStatus.TERMINATED]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account has been deactivated or terminated by college administration."
+        )
+
+    if user.role == UserRole.ADMIN and user.status == AccountStatus.PENDING:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your Administrator clearance request has been sent to Chief Administrator UTKARSH KUSHWAHA and is currently PENDING review. You will receive access once approved."
+        )
+
+    if user.role == UserRole.ADMIN and user.status == AccountStatus.REJECTED:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your Administrator clearance request was not approved by Chief Administrator."
+        )
+
+    # Verify OTP
+    if not verify_otp(clean_email, req.otp.strip()):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired verification OTP. Please request a new code."
+        )
+
+    # If new password supplied, update it
+    if req.new_password and len(req.new_password.strip()) >= 4:
+        user.password_hash = get_password_hash(req.new_password.strip())
+
+    if user.email.lower() == "utkarshkushwaha470@gmail.com":
+        user.is_chief_admin = True
+
+    db.commit()
+    db.refresh(user)
+
+    token = create_access_token({"sub": user.id, "role": user.role})
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "message": f"Welcome back, {user.full_name}! OTP verified successfully. You are now logged in.",
+        "status": user.status,
+        "user": user
+    }
+
 @router.post("/admin-signup", response_model=TokenResponse)
 async def admin_signup(
     req: AdminSignUpRequest,
@@ -186,7 +271,7 @@ async def admin_signup(
 ):
     """
     Admin registration gateway where new admins configure their own security proof
-    and verify their email via OTP.
+    and submit clearance request to Chief Administrator Utkarsh Kushwaha.
     """
     # 1. OTP Verification
     if req.otp:
@@ -208,47 +293,72 @@ async def admin_signup(
             detail="Security Proof Passphrase is required (minimum 3 characters)."
         )
 
+    is_chief = req.email.strip().lower() == "utkarshkushwaha470@gmail.com"
+    new_status = AccountStatus.APPROVED if is_chief else AccountStatus.PENDING
+
     # 3. Check existing user
     existing = db.query(User).filter(User.email == req.email.strip().lower()).first()
     if existing:
         existing.role = UserRole.ADMIN
-        existing.status = AccountStatus.APPROVED
+        existing.status = new_status
         existing.full_name = req.full_name.strip()
         existing.password_hash = get_password_hash(req.password)
         existing.admin_proof = req.admin_proof.strip()
-        if req.email.strip().lower() == "utkarshkushwaha470@gmail.com":
+        if is_chief:
             existing.is_chief_admin = True
         db.commit()
         db.refresh(existing)
-        token = create_access_token({"sub": existing.id, "role": existing.role})
-        return {"access_token": token, "token_type": "bearer", "user": existing}
+        target_user = existing
+    else:
+        new_admin = User(
+            id=str(uuid.uuid4()),
+            email=req.email.strip().lower(),
+            full_name=req.full_name.strip(),
+            password_hash=get_password_hash(req.password),
+            role=UserRole.ADMIN,
+            status=new_status,
+            locked_year=None,
+            batch="ADMIN-HEAD" if is_chief else "STAFF-ADMIN",
+            crn_or_roll_number="2720A" if is_chief else f"ADM-{uuid.uuid4().hex[:6].upper()}",
+            is_2fa_enabled=False,
+            admin_proof=req.admin_proof.strip(),
+            is_chief_admin=is_chief
+        )
+        db.add(new_admin)
+        db.commit()
+        db.refresh(new_admin)
+        target_user = new_admin
 
-    is_chief = req.email.strip().lower() == "utkarshkushwaha470@gmail.com"
-
-    new_admin = User(
-        id=str(uuid.uuid4()),
-        email=req.email.strip().lower(),
-        full_name=req.full_name.strip(),
-        password_hash=get_password_hash(req.password),
-        role=UserRole.ADMIN,
-        status=AccountStatus.APPROVED,
-        locked_year=None,
-        batch="ADMIN-HEAD" if is_chief else "STAFF-ADMIN",
-        crn_or_roll_number="2720A" if is_chief else f"ADM-{uuid.uuid4().hex[:6].upper()}",
-        is_2fa_enabled=False,
-        admin_proof=req.admin_proof.strip(),
-        is_chief_admin=is_chief
-    )
-    db.add(new_admin)
-    db.commit()
-    db.refresh(new_admin)
-
-    token = create_access_token({"sub": new_admin.id, "role": new_admin.role})
-    return {
-        "access_token": token,
-        "token_type": "bearer",
-        "user": new_admin
-    }
+    if is_chief:
+        token = create_access_token({"sub": target_user.id, "role": target_user.role})
+        return {
+            "access_token": token,
+            "token_type": "bearer",
+            "message": "Chief Administrator UTKARSH KUSHWAHA logged in successfully.",
+            "status": "APPROVED",
+            "user": target_user
+        }
+    else:
+        # Clearance request dispatched to Chief Admin
+        audit_service.log_action(
+            db=db,
+            admin_id=target_user.id,
+            action_type=AuditActionType.CREATE_GROUP, # Log clearance submission
+            target_entity="ADMIN_CLEARANCE_APPLICATION",
+            target_id=target_user.id,
+            details={
+                "applicant_name": target_user.full_name,
+                "applicant_email": target_user.email,
+                "status": "PENDING_CHIEF_APPROVAL"
+            }
+        )
+        return {
+            "access_token": "",
+            "token_type": "bearer",
+            "message": f"Administrator clearance request for {target_user.full_name} ({target_user.email}) has been submitted and sent to Chief Administrator UTKARSH KUSHWAHA for review and activation.",
+            "status": "PENDING",
+            "user": target_user
+        }
 
 @router.put("/profile", response_model=UserResponse)
 async def update_profile(

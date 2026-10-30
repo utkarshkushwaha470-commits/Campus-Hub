@@ -9,6 +9,8 @@ export default function AdminVerificationPage({ user, onUserUpdated }) {
   
   // Chief Admin Deck State
   const [adminsList, setAdminsList] = useState([]);
+  const pendingAdminRequests = adminsList.filter(a => a.status === 'PENDING');
+  const activeAdmins = adminsList.filter(a => a.status !== 'PENDING');
   const [newAdminName, setNewAdminName] = useState('');
   const [newAdminEmail, setNewAdminEmail] = useState('');
   const [newAdminPassword, setNewAdminPassword] = useState('');
@@ -75,8 +77,8 @@ export default function AdminVerificationPage({ user, onUserUpdated }) {
   const [statusMsg, setStatusMsg] = useState(null);
 
   useEffect(() => {
-    if (activeTab === 'chief-deck') loadAdmins();
-    else if (activeTab === 'work-dossier') loadWorkDossiers();
+    loadAdmins();
+    if (activeTab === 'work-dossier') loadWorkDossiers();
     else if (activeTab === 'verifications') loadVerifications();
     else if (activeTab === 'students') loadStudents();
     else if (activeTab === 'groups') loadGroups();
@@ -159,6 +161,27 @@ export default function AdminVerificationPage({ user, onUserUpdated }) {
     }
   };
 
+  const handleApproveAdmin = async (adminId, adminName) => {
+    try {
+      const res = await api.approveAdminRequest(adminId);
+      showStatus(res.message);
+      loadAdmins();
+    } catch (err) {
+      alert(err.message || 'Failed to approve administrator request.');
+    }
+  };
+
+  const handleRejectAdmin = async (adminId, adminName) => {
+    if (!confirm(`Are you sure you want to reject the administrator clearance request for ${adminName}?`)) return;
+    try {
+      const res = await api.rejectAdminRequest(adminId);
+      showStatus(res.message);
+      loadAdmins();
+    } catch (err) {
+      alert(err.message || 'Failed to reject administrator request.');
+    }
+  };
+
   const handleSendChiefMessage = async (e) => {
     e.preventDefault();
     if (!chiefSubject.trim() || !chiefMessage.trim()) {
@@ -209,9 +232,9 @@ export default function AdminVerificationPage({ user, onUserUpdated }) {
         studentSearch,
         studentStatusFilter,
         studentYearFilter,
-        'ALL'
+        'STUDENT'
       );
-      setStudents(data);
+      setStudents(data.filter(s => s.role !== 'ADMIN'));
     } catch (err) {
       console.error(err);
     } finally {
@@ -483,6 +506,11 @@ export default function AdminVerificationPage({ user, onUserUpdated }) {
               >
                 <span>👑</span>
                 <span>Manage Admins</span>
+                {adminsList.filter(a => a.status === 'PENDING').length > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-black animate-pulse shadow-sm">
+                    {adminsList.filter(a => a.status === 'PENDING').length} Pending
+                  </span>
+                )}
               </button>
 
               <button
@@ -496,15 +524,27 @@ export default function AdminVerificationPage({ user, onUserUpdated }) {
               </button>
             </>
           ) : (
-            <button
-              onClick={() => setActiveTab('chief-chat')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${
-                activeTab === 'chief-chat' ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-md' : 'text-pink-400 hover:text-white'
-              }`}
-            >
-              <span>💬</span>
-              <span>Chat with Chief Admin</span>
-            </button>
+            <>
+              <button
+                onClick={() => { setActiveTab('chief-deck'); loadAdmins(); }}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${
+                  activeTab === 'chief-deck' ? 'bg-amber-500 text-slate-950 shadow-md font-extrabold' : 'text-amber-400 hover:text-white'
+                }`}
+              >
+                <span>🛡️</span>
+                <span>Administrators</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('chief-chat')}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${
+                  activeTab === 'chief-chat' ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-md' : 'text-pink-400 hover:text-white'
+                }`}
+              >
+                <span>💬</span>
+                <span>Chat with Chief Admin</span>
+              </button>
+            </>
           )}
 
           <button
@@ -573,40 +613,176 @@ export default function AdminVerificationPage({ user, onUserUpdated }) {
         </div>
       )}
 
-      {/* ================= TAB: CHIEF ADMINISTRATOR DECK (UTKARSH KUSHWAHA) ================= */}
-      {activeTab === 'chief-deck' && isChiefAdmin && (
+      {/* ================= TAB: ADMINISTRATOR DECK (CHIEF & SUB-ADMINS) ================= */}
+      {activeTab === 'chief-deck' && (
         <div className="space-y-6">
           {/* Executive Clearance Header */}
-          <div className="rounded-2xl bg-gradient-to-r from-amber-950/80 via-slate-900 to-yellow-950/60 border border-amber-500/60 p-6 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2 mb-1.5">
-                <span className="px-2.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-amber-500 text-slate-950">
-                  Platform Director
-                </span>
-                <span className="text-xs text-amber-300 font-bold">• Supreme Governance</span>
+          {isChiefAdmin ? (
+            <div className="rounded-2xl bg-gradient-to-r from-amber-950/80 via-slate-900 to-yellow-950/60 border border-amber-500/60 p-6 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="px-2.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-amber-500 text-slate-950">
+                    Platform Director
+                  </span>
+                  <span className="text-xs text-amber-300 font-bold">• Supreme Governance</span>
+                </div>
+                <h3 className="text-xl font-black text-white flex items-center gap-2">
+                  <span>👑 Institutional Administrator Authority</span>
+                </h3>
+                <p className="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">
+                  Welcome, <strong>UTKARSH KUSHWAHA</strong>. You possess exclusive authority to appoint new college administrators, approve clearance requests, revoke staff credentials, and enforce platform security protocols.
+                </p>
               </div>
-              <h3 className="text-xl font-black text-white flex items-center gap-2">
-                <span>👑 Institutional Administrator Authority</span>
-              </h3>
-              <p className="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">
-                Welcome, <strong>UTKARSH KUSHWAHA</strong>. You possess exclusive authority to appoint new college administrators, revoke staff credentials, and enforce platform security protocols.
-              </p>
+              <button
+                onClick={() => setShowAdminModal(true)}
+                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-xs shadow-lg shadow-amber-500/20 flex items-center gap-2"
+              >
+                <span>+</span>
+                <span>Appoint New Administrator</span>
+              </button>
             </div>
-            <button
-              onClick={() => setShowAdminModal(true)}
-              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-xs shadow-lg shadow-amber-500/20 flex items-center gap-2"
-            >
-              <span>+</span>
-              <span>Appoint New Administrator</span>
-            </button>
-          </div>
+          ) : (
+            <div className="rounded-2xl bg-gradient-to-r from-slate-900 via-amber-950/30 to-slate-900 border border-amber-600/40 p-6 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-800 text-amber-300 border border-amber-600/40">
+                    🛡️ Administrator Directory
+                  </span>
+                  <span className="text-xs text-slate-400 font-semibold">• College Administration</span>
+                </div>
+                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                  <span>🛡️ Institutional Administrators Roster</span>
+                </h3>
+                <p className="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">
+                  Official roster of appointed college administrators holding platform credentials. Platform governance and appointments are held exclusively by Chief Administrator <strong>UTKARSH KUSHWAHA</strong>.
+                </p>
+              </div>
+              <div className="px-3.5 py-2 rounded-xl bg-amber-950/50 border border-amber-500/30 text-amber-300 text-xs font-semibold flex items-center gap-2">
+                <span>👑</span>
+                <span>Chief Admin: Utkarsh Kushwaha</span>
+              </div>
+            </div>
+          )}
 
-          {/* Administrators Roster Table */}
+          {/* ================= SECTION 1: PENDING ADMINISTRATOR CLEARANCE REQUESTS (CHIEF ADMIN ONLY) ================= */}
+          {isChiefAdmin && (pendingAdminRequests.length > 0 ? (
+            <div className="bg-gradient-to-r from-amber-950/40 via-slate-900 to-amber-950/20 border-2 border-amber-500/80 rounded-2xl p-6 space-y-4 shadow-2xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-amber-500/30 pb-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
+                    <h4 className="font-black text-amber-300 text-base flex items-center gap-2">
+                      <span>⏳ Pending Administrator Clearance Requests</span>
+                      <span className="px-2 py-0.5 rounded-full bg-amber-500 text-slate-950 text-xs font-black">
+                        {pendingAdminRequests.length} Required Action
+                      </span>
+                    </h4>
+                  </div>
+                  <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                    Staff applicants who registered for administrator clearance. Requires verification & activation by Chief Administrator <strong>UTKARSH KUSHWAHA</strong>.
+                  </p>
+                </div>
+                <button
+                  onClick={loadAdmins}
+                  className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-bold transition flex items-center gap-1.5 self-start sm:self-auto"
+                >
+                  <span>↻</span>
+                  <span>Refresh Queue</span>
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-950/90 text-amber-400 uppercase text-[10px] font-bold border-b border-amber-500/30">
+                    <tr>
+                      <th className="px-4 py-3">Applicant Name</th>
+                      <th className="px-4 py-3">Email Address</th>
+                      <th className="px-4 py-3">Clearance Status</th>
+                      <th className="px-4 py-3">Security Passphrase</th>
+                      <th className="px-4 py-3 text-right">Chief Decision</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800 text-slate-300">
+                    {pendingAdminRequests.map((adm) => (
+                      <tr key={adm.id} className="hover:bg-amber-950/20 transition">
+                        <td className="px-4 py-3 font-bold text-white flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center font-bold text-amber-300 text-sm">
+                            👤
+                          </div>
+                          <div>
+                            <div className="font-black text-sm text-slate-100">{adm.full_name}</div>
+                            <div className="text-[10px] text-slate-400 font-mono">CRN: {adm.crn_or_roll_number || 'ADM-PENDING'}</div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 font-mono text-amber-200/90 font-medium">{adm.email}</td>
+                        <td className="px-4 py-3">
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/50 flex items-center gap-1.5 w-max">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                            <span>Awaiting Clearance</span>
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-slate-400 font-mono">
+                          <span className="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-[11px] text-slate-300">
+                            •••••••• (Configured)
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {isChiefAdmin ? (
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => handleApproveAdmin(adm.id, adm.full_name)}
+                                className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs transition shadow-md shadow-emerald-600/30 flex items-center gap-1.5"
+                              >
+                                <span>✓</span>
+                                <span>Approve Administrator</span>
+                              </button>
+                              <button
+                                onClick={() => handleRejectAdmin(adm.id, adm.full_name)}
+                                className="px-3.5 py-1.5 rounded-xl bg-rose-950 hover:bg-rose-900 border border-rose-800/80 text-rose-300 hover:text-white font-bold text-xs transition flex items-center gap-1"
+                              >
+                                <span>✕</span>
+                                <span>Reject</span>
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-end">
+                              <span className="px-3 py-1.5 rounded-xl bg-amber-950/60 border border-amber-500/40 text-amber-300 font-bold text-[11px] flex items-center gap-1.5 shadow-sm">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                                <span>Chief Admin Approval Required (Utkarsh Kushwaha)</span>
+                              </span>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-xl">✅</span>
+                <div>
+                  <div className="text-xs font-bold text-slate-200">No Pending Administrator Clearance Requests</div>
+                  <div className="text-[11px] text-slate-400">All administrator registrations have been processed. New applicant requests will appear here instantly for Chief Admin approval.</div>
+                </div>
+              </div>
+              <button
+                onClick={loadAdmins}
+                className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+              >
+                ↻ Refresh
+              </button>
+            </div>
+          ))}
+
+          {/* ================= SECTION 2: ACTIVE APPOINTED ADMINISTRATORS ROSTER ================= */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h4 className="font-bold text-white text-base">Appointed Administrators Roster ({adminsList.length})</h4>
-                <p className="text-xs text-slate-400">All registered institutional staff holding administrative clearance.</p>
+                <h4 className="font-bold text-white text-base">Appointed Administrators Roster ({activeAdmins.length})</h4>
+                <p className="text-xs text-slate-400">All registered institutional staff holding active administrative clearance.</p>
               </div>
               <button
                 onClick={loadAdmins}
@@ -628,7 +804,7 @@ export default function AdminVerificationPage({ user, onUserUpdated }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60 text-slate-300">
-                  {adminsList.map((adm) => {
+                  {activeAdmins.map((adm) => {
                     const isChief = adm.email.toLowerCase() === 'utkarshkushwaha470@gmail.com' || adm.is_chief_admin;
                     return (
                       <tr key={adm.id} className="hover:bg-slate-800/40 transition">
@@ -661,32 +837,36 @@ export default function AdminVerificationPage({ user, onUserUpdated }) {
                               Sub-Administrator (Staff)
                             </span>
                           )}
-                        </td>
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              onClick={() => {
-                                setSelectedAdminIdForDossier(adm.id);
-                                setActiveTab('work-dossier');
-                                loadWorkDossiers(adm.id);
-                              }}
-                              className="px-2.5 py-1 rounded-lg bg-blue-950 hover:bg-blue-900 border border-blue-800/60 text-blue-300 hover:text-white font-bold text-xs transition flex items-center gap-1"
-                              title="Inspect this administrator's complete work record"
-                            >
-                              <span>🔍</span>
-                              <span>Work Dossier</span>
-                            </button>
+                            {isChiefAdmin && (
+                              <button
+                                onClick={() => {
+                                  setSelectedAdminIdForDossier(adm.id);
+                                  setActiveTab('work-dossier');
+                                  loadWorkDossiers(adm.id);
+                                }}
+                                className="px-2.5 py-1 rounded-lg bg-blue-950 hover:bg-blue-900 border border-blue-800/60 text-blue-300 hover:text-white font-bold text-xs transition flex items-center gap-1"
+                                title="Inspect this administrator's complete work record"
+                              >
+                                <span>🔍</span>
+                                <span>Work Dossier</span>
+                              </button>
+                            )}
                             {isChief ? (
                               <span className="text-[11px] text-amber-400 font-semibold italic pl-1">Permanent Director</span>
-                            ) : (
+                            ) : isChiefAdmin ? (
                               <button
                                 onClick={() => handleDeleteAdmin(adm.id, adm.full_name)}
                                 className="px-2.5 py-1 rounded-lg bg-rose-950 hover:bg-rose-900 border border-rose-800/60 text-rose-300 hover:text-white font-bold text-xs transition"
                               >
                                 Revoke
                               </button>
+                            ) : (
+                              <span className="text-slate-500 text-xs italic px-2">Active Staff</span>
                             )}
                           </div>
+                        </td>
                         </td>
                       </tr>
                     );
@@ -919,13 +1099,54 @@ export default function AdminVerificationPage({ user, onUserUpdated }) {
                                   </span>
                                 </td>
                                 <td className="px-4 py-3 text-slate-300 whitespace-nowrap">
-                                  <span className="text-[11px] font-semibold">{act.target_entity}</span>
-                                  {act.target_id && (
-                                    <span className="text-[10px] text-slate-500 block truncate max-w-[120px]">{act.target_id}</span>
-                                  )}
+                                  <div className="flex items-center gap-1.5 font-bold text-xs text-white">
+                                    <span>{act.target_entity === 'USER' ? '👤 STUDENT' : act.target_entity}</span>
+                                  </div>
+                                  {(act.student_info?.name || act.details?.student_name) ? (
+                                    <div className="text-[11px] text-amber-300 font-bold truncate max-w-[160px]">
+                                      {act.student_info?.name || act.details?.student_name}
+                                    </div>
+                                  ) : act.target_id ? (
+                                    <span className="text-[10px] text-slate-500 block truncate max-w-[120px] font-mono">{act.target_id}</span>
+                                  ) : null}
                                 </td>
                                 <td className="px-4 py-3 text-slate-300 text-[11px] font-sans">
-                                  {act.details ? (
+                                  {(act.student_info || act.details?.student_name || act.details?.student_email || act.details?.crn) ? (
+                                    <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5 shadow-md">
+                                      {/* Student Name & CRN Header */}
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <span className="font-extrabold text-white text-xs flex items-center gap-1">
+                                          <span>🎓</span>
+                                          <span className="text-emerald-300">{act.student_info?.name || act.details?.student_name || 'Student'}</span>
+                                        </span>
+                                        <span className="px-2 py-0.5 rounded-md bg-blue-950 text-blue-300 border border-blue-700/60 font-mono text-[10px] font-bold">
+                                          CRN: {act.student_info?.crn || act.details?.crn || 'N/A'}
+                                        </span>
+                                        {(act.student_info?.locked_year || act.details?.locked_year) && (
+                                          <span className="px-2 py-0.5 rounded-md bg-indigo-950 text-indigo-300 border border-indigo-700/60 text-[10px] font-bold">
+                                            Year {act.student_info?.locked_year || act.details?.locked_year}
+                                          </span>
+                                        )}
+                                      </div>
+                                      {/* Email & Batch */}
+                                      <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-300 font-mono">
+                                        <span className="text-amber-200/90 font-medium">✉️ {act.student_info?.email || act.details?.student_email || 'N/A'}</span>
+                                        <span className="text-slate-600">•</span>
+                                        <span className="text-slate-400">Batch: <strong className="text-slate-200">{act.student_info?.batch || act.details?.batch || 'N/A'}</strong></span>
+                                      </div>
+                                      {/* Rejection / Note Details */}
+                                      {act.details?.rejection_reason && (
+                                        <div className="text-[10px] text-rose-300 font-sans italic pt-0.5">
+                                          Rejection Reason: {act.details.rejection_reason}
+                                        </div>
+                                      )}
+                                      {act.details?.reason && (
+                                        <div className="text-[10px] text-rose-300 font-sans italic pt-0.5">
+                                          Reason: {act.details.reason}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ) : act.details ? (
                                     <div className="max-w-md truncate" title={JSON.stringify(act.details)}>
                                       {typeof act.details === 'object' ? (
                                         Object.entries(act.details).map(([k, v]) => `${k}: ${v}`).join(' | ')

@@ -30,6 +30,7 @@ export default function SignUpPage({ onSignUpSuccess, onGoToLogin }) {
   const [deviceOtp, setDeviceOtp] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [adminSuccess, setAdminSuccess] = useState(null);
 
   const handleSendOtp = async () => {
     if (!email.trim()) {
@@ -88,9 +89,15 @@ export default function SignUpPage({ onSignUpSuccess, onGoToLogin }) {
           admin_proof: adminProof.trim(),
           otp: otp.trim()
         });
-        setAuthToken(res.access_token);
-        setCurrentUser(res.user);
-        onSignUpSuccess(res.user);
+        if (res.access_token && res.user?.is_chief_admin) {
+          setAuthToken(res.access_token);
+          setCurrentUser(res.user);
+          onSignUpSuccess(res.user);
+        } else {
+          setAdminSuccess(
+            res.message || 'Administrator clearance request submitted! Your request has been dispatched to Chief Administrator UTKARSH KUSHWAHA for review and activation.'
+          );
+        }
       } else {
         if (!idPhoto) {
           setError('Please upload your official college physical ID card photo.');
@@ -165,6 +172,23 @@ export default function SignUpPage({ onSignUpSuccess, onGoToLogin }) {
             <span>🛡️ Admin Clearance Registration</span>
           </button>
         </div>
+
+        {adminSuccess && (
+          <div className="mb-5 p-4 rounded-xl bg-emerald-950/70 border border-emerald-500/60 text-emerald-300 text-xs space-y-2 shadow-xl">
+            <div className="font-bold text-white flex items-center gap-1.5">
+              <span>✓</span>
+              <span>Clearance Request Dispatched</span>
+            </div>
+            <p className="leading-relaxed">{adminSuccess}</p>
+            <button
+              type="button"
+              onClick={onGoToLogin}
+              className="mt-2 w-full py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition"
+            >
+              Go to Sign In ➔
+            </button>
+          </div>
+        )}
 
         {error && (
           <div className="mb-5 p-3 rounded-xl bg-red-950/60 border border-red-800 text-red-300 text-xs flex items-center gap-2">

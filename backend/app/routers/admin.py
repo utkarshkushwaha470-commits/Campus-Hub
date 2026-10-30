@@ -1,5 +1,6 @@
 from typing import List, Optional
 import uuid
+import json
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from sqlalchemy.orm import Session
@@ -126,7 +127,14 @@ async def review_verification(
             target_entity="USER",
             target_id=student.id,
             ip_address=client_ip,
-            details={"locked_year": locked_year, "batch": student.batch, "crn": student.crn_or_roll_number}
+            details={
+                "student_name": student.full_name,
+                "student_email": student.email,
+                "crn": student.crn_or_roll_number,
+                "locked_year": locked_year,
+                "batch": student.batch,
+                "action": "APPROVED"
+            }
         )
 
         return {
@@ -153,7 +161,14 @@ async def review_verification(
             target_entity="USER",
             target_id=student.id,
             ip_address=client_ip,
-            details={"rejection_reason": review.rejection_reason}
+            details={
+                "student_name": student.full_name,
+                "student_email": student.email,
+                "crn": student.crn_or_roll_number,
+                "batch": student.batch,
+                "rejection_reason": review.rejection_reason,
+                "action": "REJECTED"
+            }
         )
 
         return {
@@ -238,8 +253,9 @@ async def list_all_students(
     """
     Admin access to ALL students across campus.
     Enables viewing profiles, academic years, CRN/roll numbers, points, level, and account status.
+    Administrators are strictly excluded from the student directory.
     """
-    query = db.query(User)
+    query = db.query(User).filter(User.role != UserRole.ADMIN)
     
     if status_filter and status_filter.upper() != "ALL":
         query = query.filter(User.status == status_filter.upper())
@@ -377,7 +393,12 @@ async def list_all_admins(
     Returns list of all administrators.
     Chief Admin is highlighted as the supreme authority (Utkarsh Kushwaha).
     """
-    admins = db.query(User).filter(User.role == UserRole.ADMIN).order_by(User.created_at.asc()).all()
+    is_chief = current_admin.email.lower() == "utkarshkushwaha470@gmail.com" or getattr(current_admin, "is_chief_admin", False)
+    query = db.query(User).filter(User.role == UserRole.ADMIN)
+    if not is_chief:
+        # Normal sub-admins cannot view pending registering admins or clearance queue
+        query = query.filter(User.status == AccountStatus.APPROVED)
+    admins = query.order_by(User.created_at.asc()).all()
     
     results = []
     for a in admins:
@@ -455,16 +476,50 @@ async def get_admins_work_dossier(
         last_active = last_log.created_at if last_log else a.updated_at
         last_ip = last_log.ip_address if last_log else "127.0.0.1"
 
-        # Recent activities (up to 50 actions)
+        # Recent activities (up to 50 actions) with enriched student details
         recent_activities = []
         for log in logs[:50]:
+            parsed_details = {}
+            if log.details_json:
+                if isinstance(log.details_json, dict):
+                    parsed_details = dict(log.details_json)
+                elif isinstance(log.details_json, str):
+                    try:
+                        parsed_details = json.loads(log.details_json)
+                    except Exception:
+                        parsed_details = {"raw": log.details_json}
+
+            student_info = None
+            if log.target_entity in ["USER", "STUDENT"] and log.target_id:
+                target_user = db.query(User).filter(User.id == log.target_id).first()
+                if target_user:
+                    student_info = {
+                        "name": target_user.full_name,
+                        "crn": target_user.crn_or_roll_number,
+                        "email": target_user.email,
+                        "batch": target_user.batch,
+                        "locked_year": target_user.locked_year,
+                        "status": target_user.status
+                    }
+                    if "student_name" not in parsed_details:
+                        parsed_details["student_name"] = target_user.full_name
+                    if "student_email" not in parsed_details:
+                        parsed_details["student_email"] = target_user.email
+                    if "crn" not in parsed_details:
+                        parsed_details["crn"] = target_user.crn_or_roll_number
+                    if "batch" not in parsed_details:
+                        parsed_details["batch"] = target_user.batch
+                    if "locked_year" not in parsed_details and target_user.locked_year:
+                        parsed_details["locked_year"] = target_user.locked_year
+
             recent_activities.append({
                 "id": log.id,
                 "action_type": log.action_type,
                 "target_entity": log.target_entity,
                 "target_id": log.target_id,
                 "ip_address": log.ip_address,
-                "details": log.details_json,
+                "details": parsed_details,
+                "student_info": student_info,
                 "timestamp": log.created_at
             })
 
@@ -615,6 +670,96 @@ async def delete_or_terminate_admin(
     return {
         "message": f"Administrator credentials for {target_admin.full_name} have been REVOKED.",
         "revoked_id": target_admin.id
+    }
+
+@router.post("/approve-admin-request/{admin_id}")
+async def approve_admin_request(
+    admin_id: str,
+    request: Request,
+    current_admin: User = Depends(admin_only),
+    db: Session = Depends(get_db)
+):
+    """
+    Chief Administrator Exclusive: Approve a pending administrator clearance request.
+    Only Utkarsh Kushwaha has this authority.
+    """
+    is_chief = current_admin.email.lower() == "utkarshkushwaha470@gmail.com" or getattr(current_admin, "is_chief_admin", False)
+    if not is_chief:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access Denied: Only Chief Administrator UTKARSH KUSHWAHA can approve administrator clearance requests."
+        )
+
+    target_admin = db.query(User).filter(User.id == admin_id).first()
+    if not target_admin:
+        raise HTTPException(status_code=404, detail="Administrator applicant record not found.")
+
+    target_admin.status = AccountStatus.APPROVED
+    target_admin.role = UserRole.ADMIN
+    db.commit()
+
+    client_ip = request.client.host if request.client else "127.0.0.1"
+    audit_service.log_action(
+        db=db,
+        admin_id=current_admin.id,
+        action_type=AuditActionType.APPROVE_ID,
+        target_entity="ADMIN_APPROVAL",
+        target_id=target_admin.id,
+        ip_address=client_ip,
+        details={
+            "chief_admin": current_admin.full_name,
+            "approved_admin_name": target_admin.full_name,
+            "approved_admin_email": target_admin.email
+        }
+    )
+
+    return {
+        "message": f"Successfully approved administrator clearance for {target_admin.full_name} ({target_admin.email}).",
+        "admin_id": target_admin.id
+    }
+
+@router.post("/reject-admin-request/{admin_id}")
+async def reject_admin_request(
+    admin_id: str,
+    request: Request,
+    current_admin: User = Depends(admin_only),
+    db: Session = Depends(get_db)
+):
+    """
+    Chief Administrator Exclusive: Reject a pending administrator clearance request.
+    """
+    is_chief = current_admin.email.lower() == "utkarshkushwaha470@gmail.com" or getattr(current_admin, "is_chief_admin", False)
+    if not is_chief:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access Denied: Only Chief Administrator UTKARSH KUSHWAHA can reject administrator clearance requests."
+        )
+
+    target_admin = db.query(User).filter(User.id == admin_id).first()
+    if not target_admin:
+        raise HTTPException(status_code=404, detail="Administrator applicant record not found.")
+
+    target_admin.status = AccountStatus.REJECTED
+    db.commit()
+
+    client_ip = request.client.host if request.client else "127.0.0.1"
+    audit_service.log_action(
+        db=db,
+        admin_id=current_admin.id,
+        action_type=AuditActionType.REJECT_ID,
+        target_entity="ADMIN_REJECTION",
+        target_id=target_admin.id,
+        ip_address=client_ip,
+        details={
+            "chief_admin": current_admin.full_name,
+            "rejected_admin_name": target_admin.full_name,
+            "rejected_admin_email": target_admin.email
+        }
+    )
+
+    return {
+        "message": f"Administrator request for {target_admin.full_name} ({target_admin.email}) has been rejected.",
+        "admin_id": target_admin.id
     }
 
 @router.post("/chief-message")
