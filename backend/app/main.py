@@ -114,7 +114,7 @@ if __name__ == "__main__":
     import uvicorn
     import webbrowser
     print("==================================================")
-    print("  Starting Brogrammers Server at http://localhost:8000")
+    print("  Starting Campus Hub Server at http://localhost:8000")
     print("==================================================")
     webbrowser.open("http://localhost:8000")
     uvicorn.run("app.main:app", host="127.0.0.1", port=8000, reload=True)

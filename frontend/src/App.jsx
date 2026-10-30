@@ -12,13 +12,16 @@ import LeaderboardPage from './pages/LeaderboardPage';
 import CampusChatPage from './pages/CampusChatPage';
 import CampusGroupsPage from './pages/CampusGroupsPage';
 import SettingsPage from './pages/SettingsPage';
-import { getCurrentUser, removeAuthToken, removeCurrentUser } from './services/api';
+import FacultyChiefChatPage from './pages/FacultyChiefChatPage';
+import ChiefFacultyChatPage from './pages/ChiefFacultyChatPage';
+import { api, getCurrentUser, removeAuthToken, removeCurrentUser } from './services/api';
 
 export default function App() {
   const [user, setUser] = useState(null);
   const [authView, setAuthView] = useState('login'); // 'login' | 'signup'
   const [activePage, setActivePage] = useState('dashboard');
   const [liveAlert, setLiveAlert] = useState(null);
+  const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
 
   useEffect(() => {
     const savedUser = getCurrentUser();
@@ -56,6 +59,29 @@ export default function App() {
       if (socket) socket.close();
     };
   }, [user]);
+
+  // Unread chat polling & notification dot
+  useEffect(() => {
+    if (!user || user.status !== 'APPROVED') return;
+
+    const checkUnread = async () => {
+      try {
+        
+        const inbox = await api.getChatInbox();
+        if (Array.isArray(inbox)) {
+          const hasUnread = inbox.some((t) => t.unread_count > 0);
+          if (hasUnread && activePage !== 'chat') {
+            setHasUnreadMessages(true);
+          }
+        }
+      } catch (err) {}
+    };
+
+    checkUnread();
+    const interval = setInterval(checkUnread, 5000);
+    return () => clearInterval(interval);
+  }, [user, activePage]);
+
 
   const handleLogout = () => {
     removeAuthToken();
@@ -133,8 +159,12 @@ export default function App() {
       <Navbar
         user={user}
         activePage={activePage}
-        setActivePage={setActivePage}
+        setActivePage={(page) => {
+          if (page === 'chat') setHasUnreadMessages(false);
+          setActivePage(page);
+        }}
         onLogout={handleLogout}
+        hasUnreadMessages={hasUnreadMessages}
       />
 
       {/* Main Routed Area */}
@@ -143,7 +173,7 @@ export default function App() {
           <DashboardPage user={user} onNavigate={(page) => setActivePage(page)} />
         )}
         {activePage === 'chat' && (
-          <CampusChatPage user={user} />
+          <CampusChatPage user={user} onClearUnread={() => setHasUnreadMessages(false)} />
         )}
         {activePage === 'groups' && (
           <CampusGroupsPage user={user} />
@@ -162,6 +192,12 @@ export default function App() {
         )}
         {activePage === 'admin-portal' && user.role === 'ADMIN' && (
           <AdminVerificationPage user={user} onUserUpdated={(updated) => setUser(updated)} />
+        )}
+        {activePage === 'chief-faculty-chat' && (user.is_chief_admin || (user.email && user.email.toLowerCase().trim() === 'utkarshkushwaha470@gmail.com')) && (
+          <ChiefFacultyChatPage user={user} />
+        )}
+        {activePage === 'chief-chat' && user.role !== 'STUDENT' && !(user.is_chief_admin || (user.email && user.email.toLowerCase().trim() === 'utkarshkushwaha470@gmail.com')) && (
+          <FacultyChiefChatPage user={user} />
         )}
         {activePage === 'settings' && (
           <SettingsPage user={user} onUserUpdated={(updated) => setUser(updated)} />
@@ -183,14 +219,25 @@ export default function App() {
         </button>
 
         <button
-          onClick={() => setActivePage('chat')}
-          className={`flex flex-col items-center gap-1 text-[10px] font-bold ${
+          onClick={() => {
+            setHasUnreadMessages(false);
+            setActivePage('chat');
+          }}
+          className={`flex flex-col items-center gap-1 text-[10px] font-bold relative ${
             activePage === 'chat' ? 'text-purple-400' : 'text-slate-400'
           }`}
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-          </svg>
+          <div className="relative">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+            {hasUnreadMessages && (
+              <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500 shadow-sm shadow-rose-500"></span>
+              </span>
+            )}
+          </div>
           Chat
         </button>
 

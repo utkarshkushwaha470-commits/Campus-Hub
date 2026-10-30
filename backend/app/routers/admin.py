@@ -1,4 +1,5 @@
 from typing import List, Optional
+from pydantic import BaseModel
 import uuid
 import json
 from datetime import datetime
@@ -7,12 +8,13 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user import User, AccountStatus, UserRole
 from app.models.id_verification import IDVerification, IDVerificationStatus
-from app.models.admin_audit_log import AdminAuditLog, AuditActionType
+from app.models.admin_audit_log import AdminAuditLog, AuditActionType, FacultyDispatch
 from app.models.group import CampusGroup
+from app.models.chat import ChiefFacultyMessage
 from app.models.notification import Notification
 from app.schemas.auth import (
     IDVerificationResponse, IDVerificationReview, YearlyPromotionRequest, UserResponse,
-    StudentTerminationRequest, StudentReinstateRequest, CreateAdminRequest, DirectChiefChatMessage
+    StudentTerminationRequest, StudentReinstateRequest, CreateAdminRequest, AppointFacultyRequest, DirectChiefChatMessage
 )
 from app.services.auth_service import require_roles, get_current_user, get_password_hash
 from app.services.storage_service import storage_service
@@ -573,53 +575,74 @@ async def create_new_admin(
     Chief Administrator Exclusive: Appoint a new institutional Administrator.
     Only Utkarsh Kushwaha possesses this executive authority.
     """
-    is_chief = current_admin.email.lower() == "utkarshkushwaha470@gmail.com" or getattr(current_admin, "is_chief_admin", False)
+    check_demo_protection(current_admin)
+    is_chief = current_admin.email.lower().strip() == "utkarshkushwaha470@gmail.com" or getattr(current_admin, "is_chief_admin", False)
     if not is_chief:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access Denied: Only Chief Administrator UTKARSH KUSHWAHA has the authority to appoint new administrators."
         )
 
-    # Check email duplicate
-    existing = db.query(User).filter(User.email == req.email.lower().strip()).first()
-    if existing:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"An account with email {req.email} already exists."
-        )
+    clean_email = req.email.lower().strip()
+    clean_name = req.full_name.strip()
+    proof_pass = req.admin_proof.strip() if req.admin_proof and req.admin_proof.strip() else "staffadmin2026"
 
-    new_admin = User(
-        id=str(uuid.uuid4()),
-        email=req.email.lower().strip(),
-        full_name=req.full_name.strip(),
-        password_hash=get_password_hash(req.password),
-        role=UserRole.ADMIN,
-        status=AccountStatus.APPROVED,
-        locked_year=None,
-        batch="STAFF-ADMIN",
-        crn_or_roll_number=f"ADM-{uuid.uuid4().hex[:6].upper()}",
-        is_2fa_enabled=False,
-        admin_proof=req.admin_proof.strip() if req.admin_proof.strip() else "staffadmin2026",
-        is_chief_admin=False
-    )
-    db.add(new_admin)
-    db.commit()
-    db.refresh(new_admin)
+    # Check if user already exists
+    existing = db.query(User).filter(User.email == clean_email).first()
+    if existing:
+        if existing.role == UserRole.ADMIN and existing.status == AccountStatus.APPROVED:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"An active Administrator account with email {clean_email} already exists."
+            )
+        # If existing is a student or pending applicant, promote them directly to Administrator!
+        existing.role = UserRole.ADMIN
+        existing.status = AccountStatus.APPROVED
+        existing.full_name = clean_name
+        if req.password:
+            existing.password_hash = get_password_hash(req.password)
+        existing.admin_proof = proof_pass
+        existing.batch = "STAFF-ADMIN"
+        existing.is_chief_admin = False
+        db.commit()
+        db.refresh(existing)
+        new_admin = existing
+    else:
+        new_admin = User(
+            id=str(uuid.uuid4()),
+            email=clean_email,
+            full_name=clean_name,
+            password_hash=get_password_hash(req.password),
+            role=UserRole.ADMIN,
+            status=AccountStatus.APPROVED,
+            locked_year=None,
+            batch="STAFF-ADMIN",
+            crn_or_roll_number=f"ADM-{uuid.uuid4().hex[:6].upper()}",
+            is_2fa_enabled=False,
+            admin_proof=proof_pass,
+            is_chief_admin=False
+        )
+        db.add(new_admin)
+        db.commit()
+        db.refresh(new_admin)
 
     client_ip = request.client.host if request.client else "127.0.0.1"
-    audit_service.log_action(
-        db=db,
-        admin_id=current_admin.id,
-        action_type=AuditActionType.CREATE_MODULE,  # Executive admin creation
-        target_entity="ADMIN_USER",
-        target_id=new_admin.id,
-        ip_address=client_ip,
-        details={
-            "chief_admin": current_admin.full_name,
-            "new_admin_name": new_admin.full_name,
-            "new_admin_email": new_admin.email
-        }
-    )
+    try:
+        audit_service.log_action(
+            db=db,
+            admin_id=current_admin.id,
+            action_type=AuditActionType.CREATE_ADMIN,
+            target_entity="ADMIN_USER",
+            target_id=new_admin.id,
+            ip_address=client_ip,
+            details={
+                "chief_admin": current_admin.full_name,
+                "new_admin_name": new_admin.full_name,
+                "new_admin_email": new_admin.email
+            }
+        )
+    except Exception:
+        pass
 
     return {
         "message": f"Successfully appointed new Administrator: {new_admin.full_name} ({new_admin.email}).",
@@ -777,38 +800,594 @@ async def reject_admin_request(
         "admin_id": target_admin.id
     }
 
-@router.post("/chief-message")
-async def send_direct_message_to_chief(
-    req: DirectChiefChatMessage,
+
+@router.get("/faculty-list")
+async def list_all_faculty(
+    current_admin: User = Depends(admin_only),
+    db: Session = Depends(get_db)
+):
+    """Returns list of all faculty members in the institution."""
+    faculties = db.query(User).filter(User.role == UserRole.FACULTY).order_by(User.full_name.asc()).all()
+    return [
+        {
+            "id": f.id,
+            "full_name": f.full_name,
+            "email": f.email,
+            "batch": f.batch,
+            "status": f.status,
+            "crn_or_roll_number": f.crn_or_roll_number,
+            "created_at": f.created_at
+        }
+        for f in faculties
+    ]
+
+@router.post("/appoint-faculty")
+async def appoint_faculty_member(
+    req: AppointFacultyRequest,
     request: Request,
     current_admin: User = Depends(admin_only),
     db: Session = Depends(get_db)
 ):
     """
-    Direct communication channel for sub-administrators to consult or report directly
-    to Chief Administrator Utkarsh Kushwaha.
+    Chief Administrator Exclusive: Appoint a Faculty Member / Professor directly.
+    Only Utkarsh Kushwaha has executive authority.
     """
-    chief = db.query(User).filter(
-        (User.email == "utkarshkushwaha470@gmail.com") | (User.is_chief_admin == True)
-    ).first()
+    check_demo_protection(current_admin)
+    is_chief = current_admin.email.lower().strip() == "utkarshkushwaha470@gmail.com" or getattr(current_admin, "is_chief_admin", False)
+    if not is_chief:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access Denied: Only Chief Administrator UTKARSH KUSHWAHA has authority to appoint faculty members."
+        )
+
+    clean_email = req.email.lower().strip()
+    clean_name = req.full_name.strip()
+    dept = req.department.strip() if req.department and req.department.strip() else "Computer Science & Engineering"
+
+    existing = db.query(User).filter(User.email == clean_email).first()
+    if existing:
+        if existing.role == UserRole.FACULTY and existing.status == AccountStatus.APPROVED:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"An active Faculty member with email '{clean_email}' already exists."
+            )
+        # Upgrade account to Faculty
+        existing.role = UserRole.FACULTY
+        existing.status = AccountStatus.APPROVED
+        existing.full_name = clean_name
+        if req.password:
+            existing.password_hash = get_password_hash(req.password)
+        existing.batch = f"FACULTY - {dept}"
+        existing.locked_year = None
+        db.commit()
+        db.refresh(existing)
+        target = existing
+    else:
+        new_fac = User(
+            id=str(uuid.uuid4()),
+            email=clean_email,
+            full_name=clean_name,
+            password_hash=get_password_hash(req.password),
+            role=UserRole.FACULTY,
+            status=AccountStatus.APPROVED,
+            locked_year=None,
+            batch=f"FACULTY - {dept}",
+            crn_or_roll_number=f"FAC-{uuid.uuid4().hex[:6].upper()}",
+            is_2fa_enabled=False,
+            is_chief_admin=False
+        )
+        db.add(new_fac)
+        db.commit()
+        db.refresh(new_fac)
+        target = new_fac
 
     client_ip = request.client.host if request.client else "127.0.0.1"
-    audit_service.log_action(
-        db=db,
-        admin_id=current_admin.id,
-        action_type=AuditActionType.PROBLEM_FORWARD,
-        target_entity="CHIEF_ADMIN_DISPATCH",
-        target_id=chief.id if chief else "CHIEF",
-        ip_address=client_ip,
-        details={
-            "from_admin": current_admin.full_name,
-            "from_email": current_admin.email,
-            "subject": req.subject,
-            "message": req.message
-        }
-    )
+    try:
+        audit_service.log_action(
+            db=db,
+            admin_id=current_admin.id,
+            action_type=AuditActionType.CREATE_MODULE,
+            target_entity="FACULTY_MEMBER",
+            target_id=target.id,
+            ip_address=client_ip,
+            details={
+                "chief_admin": current_admin.full_name,
+                "faculty_name": target.full_name,
+                "faculty_email": target.email,
+                "department": dept
+            }
+        )
+    except Exception:
+        pass
 
     return {
-        "message": f"Urgent administrative dispatch received by Chief Administrator UTKARSH KUSHWAHA.",
-        "timestamp": datetime.utcnow()
+        "message": f"Successfully appointed Faculty member: {target.full_name} ({target.email}) - {dept}.",
+        "faculty": {
+            "id": target.id,
+            "full_name": target.full_name,
+            "email": target.email,
+            "role": target.role,
+            "batch": target.batch
+        }
+    }
+
+# ============================================================================
+# FACULTY PRIORITY DISPATCHES (CHIEF ADMINISTRATOR EXECUTIVE INBOX)
+# ============================================================================
+
+class ReplyDispatchReq(BaseModel):
+    reply: str
+
+@router.post("/chief-message")
+async def send_direct_message_to_chief(
+    req: DirectChiefChatMessage,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Direct Priority Dispatch Channel: Faculty & sub-administrators send urgent
+    dispatches, academic escalations, and incident reports to Chief Administrator Utkarsh Kushwaha.
+    Students are strictly forbidden from this channel.
+    """
+    if current_user.role not in [UserRole.ADMIN, UserRole.FACULTY]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access Denied: Only verified Faculty and Administrators can send dispatches to Chief Administrator."
+        )
+
+    clean_subj = req.subject.strip()
+    clean_msg = req.message.strip()
+    if not clean_subj or not clean_msg:
+        raise HTTPException(status_code=400, detail="Subject and message content are required.")
+
+    dispatch = FacultyDispatch(
+        sender_id=current_user.id,
+        sender_name=current_user.full_name,
+        sender_email=current_user.email,
+        sender_role=current_user.role,
+        sender_department=current_user.batch or "Institutional Staff",
+        subject=clean_subj,
+        message=clean_msg,
+        is_read=False
+    )
+    db.add(dispatch)
+    db.commit()
+    db.refresh(dispatch)
+
+    client_ip = request.client.host if request.client else "127.0.0.1"
+    try:
+        audit_service.log_action(
+            db=db,
+            admin_id=current_user.id,
+            action_type=AuditActionType.FORWARD_PROBLEM_BOX,
+            target_entity="CHIEF_ADMIN_DISPATCH",
+            target_id=dispatch.id,
+            ip_address=client_ip,
+            details={
+                "from_name": current_user.full_name,
+                "from_email": current_user.email,
+                "subject": clean_subj
+            }
+        )
+    except Exception:
+        pass
+
+    return {
+        "message": "Urgent administrative dispatch received by Chief Administrator UTKARSH KUSHWAHA.",
+        "dispatch_id": dispatch.id,
+        "timestamp": dispatch.created_at.isoformat()
+    }
+
+@router.get("/faculty-dispatches")
+async def get_all_faculty_dispatches(
+    current_admin: User = Depends(admin_only),
+    db: Session = Depends(get_db)
+):
+    """
+    Chief Administrator Exclusive: View all priority dispatches sent by Faculty & Sub-Admins.
+    Only Utkarsh Kushwaha possesses executive clearance to inspect this inbox.
+    """
+    is_chief = current_admin.email.lower().strip() == "utkarshkushwaha470@gmail.com" or getattr(current_admin, "is_chief_admin", False)
+    if not is_chief:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access Denied: Only Chief Administrator UTKARSH KUSHWAHA can access Faculty Dispatches."
+        )
+
+    dispatches = db.query(FacultyDispatch).order_by(FacultyDispatch.created_at.desc()).all()
+    unread_count = sum(1 for d in dispatches if not d.is_read)
+
+    return {
+        "unread_count": unread_count,
+        "total_count": len(dispatches),
+        "dispatches": [
+            {
+                "id": d.id,
+                "sender_id": d.sender_id,
+                "sender_name": d.sender_name,
+                "sender_email": d.sender_email,
+                "sender_role": d.sender_role,
+                "sender_department": d.sender_department,
+                "subject": d.subject,
+                "message": d.message,
+                "is_read": d.is_read,
+                "chief_reply": d.chief_reply,
+                "replied_at": d.replied_at.isoformat() if d.replied_at else None,
+                "created_at": d.created_at.isoformat()
+            }
+            for d in dispatches
+        ]
+    }
+
+@router.post("/reply-dispatch/{dispatch_id}")
+async def reply_to_faculty_dispatch(
+    dispatch_id: str,
+    req: ReplyDispatchReq,
+    current_admin: User = Depends(admin_only),
+    db: Session = Depends(get_db)
+):
+    """
+    Chief Administrator Exclusive: Officially reply to a Faculty priority dispatch.
+    """
+    is_chief = current_admin.email.lower().strip() == "utkarshkushwaha470@gmail.com" or getattr(current_admin, "is_chief_admin", False)
+    if not is_chief:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access Denied: Only Chief Administrator UTKARSH KUSHWAHA can reply to dispatches."
+        )
+
+    clean_reply = req.reply.strip()
+    if not clean_reply:
+        raise HTTPException(status_code=400, detail="Reply text cannot be empty.")
+
+    dispatch = db.query(FacultyDispatch).filter(FacultyDispatch.id == dispatch_id).first()
+    if not dispatch:
+        raise HTTPException(status_code=404, detail="Dispatch record not found.")
+
+    dispatch.chief_reply = clean_reply
+    dispatch.replied_at = datetime.utcnow()
+    dispatch.is_read = True
+    db.commit()
+    db.refresh(dispatch)
+
+    return {
+        "message": f"Official reply successfully dispatched to {dispatch.sender_name}.",
+        "dispatch": {
+            "id": dispatch.id,
+            "chief_reply": dispatch.chief_reply,
+            "replied_at": dispatch.replied_at.isoformat(),
+            "is_read": dispatch.is_read
+        }
+    }
+
+@router.post("/mark-dispatch-read/{dispatch_id}")
+async def mark_dispatch_as_read(
+    dispatch_id: str,
+    current_admin: User = Depends(admin_only),
+    db: Session = Depends(get_db)
+):
+    """Chief Administrator marks a dispatch as reviewed/read."""
+    is_chief = current_admin.email.lower().strip() == "utkarshkushwaha470@gmail.com" or getattr(current_admin, "is_chief_admin", False)
+    if not is_chief:
+        raise HTTPException(status_code=403, detail="Access Denied.")
+
+    dispatch = db.query(FacultyDispatch).filter(FacultyDispatch.id == dispatch_id).first()
+    if dispatch:
+        dispatch.is_read = True
+        db.commit()
+    return {"message": "Dispatch marked as read."}
+
+@router.get("/my-sent-dispatches")
+async def get_my_sent_dispatches(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Sender retrieves all dispatches they sent to Chief Administrator with live replies."""
+    dispatches = db.query(FacultyDispatch).filter(
+        FacultyDispatch.sender_id == current_user.id
+    ).order_by(FacultyDispatch.created_at.desc()).all()
+
+    return [
+        {
+            "id": d.id,
+            "subject": d.subject,
+            "message": d.message,
+            "chief_reply": d.chief_reply,
+            "replied_at": d.replied_at.isoformat() if d.replied_at else None,
+            "created_at": d.created_at.isoformat(),
+            "is_read": d.is_read
+        }
+        for d in dispatches
+    ]
+
+
+# ============================================================================
+# CHIEF ADMINISTRATOR <-> FACULTY DIRECT 1-ON-1 PERSONAL CHAT ENGINE
+# Strictly for Faculty & Staff Admins <-> Chief Admin Utkarsh Kushwaha
+# Students are strictly forbidden from accessing this feature.
+# ============================================================================
+
+class FacultyToChiefMessageRequest(BaseModel):
+    message: str
+
+class ChiefToFacultyReplyRequest(BaseModel):
+    message: str
+
+@router.post("/faculty/send-to-chief")
+async def faculty_send_to_chief(
+    req: FacultyToChiefMessageRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Direct 1-on-1 personal chat channel for Faculty members and Staff Administrators
+    to communicate directly with Chief Administrator Utkarsh Kushwaha.
+    Students are strictly forbidden from this executive channel.
+    """
+    if current_user.role == UserRole.STUDENT:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access Denied: Students are strictly forbidden from Direct Chat with Chief Administrator."
+        )
+
+    if current_user.role not in [UserRole.FACULTY, UserRole.ADMIN]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access Denied: Only verified Faculty and Administrators can communicate with Chief Administrator."
+        )
+
+    msg_text = req.message.strip()
+    if not msg_text:
+        raise HTTPException(status_code=400, detail="Message cannot be empty.")
+
+    msg = ChiefFacultyMessage(
+        faculty_id=current_user.id,
+        sender_id=current_user.id,
+        sender_role="FACULTY",
+        sender_name=current_user.full_name,
+        message=msg_text,
+        is_read=False
+    )
+    db.add(msg)
+    db.commit()
+    db.refresh(msg)
+
+    return {
+        "message": "Message sent directly to Chief Administrator UTKARSH KUSHWAHA.",
+        "data": {
+            "id": msg.id,
+            "sender_name": msg.sender_name,
+            "sender_role": msg.sender_role,
+            "message": msg.message,
+            "created_at": msg.created_at.isoformat()
+        }
+    }
+
+@router.get("/faculty/my-chief-conversation")
+async def faculty_get_my_chief_conversation(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Faculty / Staff Admin retrieves their entire 1-on-1 personal conversation with Chief Admin.
+    Also automatically marks Chief Admin replies as read.
+    """
+    if current_user.role == UserRole.STUDENT:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access Denied: Students are strictly forbidden from Direct Chat with Chief Administrator."
+        )
+
+    if current_user.role not in [UserRole.FACULTY, UserRole.ADMIN]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access Denied: Only verified Faculty and Administrators can view Chief Administrator chat."
+        )
+
+    # Mark Chief Admin replies to this faculty member as read
+    db.query(ChiefFacultyMessage).filter(
+        ChiefFacultyMessage.faculty_id == current_user.id,
+        ChiefFacultyMessage.sender_role == "CHIEF_ADMIN",
+        ChiefFacultyMessage.is_read == False
+    ).update({"is_read": True})
+    db.commit()
+
+    messages = db.query(ChiefFacultyMessage).filter(
+        ChiefFacultyMessage.faculty_id == current_user.id
+    ).order_by(ChiefFacultyMessage.created_at.asc()).all()
+
+    return [
+        {
+            "id": m.id,
+            "sender_id": m.sender_id,
+            "sender_role": m.sender_role,
+            "sender_name": m.sender_name,
+            "message": m.message,
+            "is_me": m.sender_id == current_user.id,
+            "created_at": m.created_at.isoformat()
+        }
+        for m in messages
+    ]
+
+@router.get("/faculty/unread-from-chief")
+async def faculty_unread_from_chief(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Check if Chief Admin has sent an unread reply to this faculty member."""
+    if current_user.role == UserRole.STUDENT or current_user.role not in [UserRole.FACULTY, UserRole.ADMIN]:
+        return {"unread_count": 0}
+
+    count = db.query(ChiefFacultyMessage).filter(
+        ChiefFacultyMessage.faculty_id == current_user.id,
+        ChiefFacultyMessage.sender_role == "CHIEF_ADMIN",
+        ChiefFacultyMessage.is_read == False
+    ).count()
+
+    return {"unread_count": count}
+
+@router.get("/faculty-chats")
+async def list_faculty_chats_for_chief(
+    current_admin: User = Depends(admin_only),
+    db: Session = Depends(get_db)
+):
+    """
+    Chief Administrator Exclusive: View all active 1-on-1 conversations with Faculty & Staff Admins.
+    """
+    is_chief = current_admin.email.lower().strip() == "utkarshkushwaha470@gmail.com" or getattr(current_admin, "is_chief_admin", False)
+    if not is_chief:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access Denied: Only Chief Administrator UTKARSH KUSHWAHA can access Direct Chat with Faculty."
+        )
+
+    # Get all faculty and staff administrators (excluding Chief Admin himself and students)
+    faculties = db.query(User).filter(
+        User.role.in_([UserRole.FACULTY, UserRole.ADMIN]),
+        User.id != current_admin.id,
+        User.is_chief_admin == False
+    ).all()
+
+    results = []
+    for f in faculties:
+        last_msg = db.query(ChiefFacultyMessage).filter(
+            ChiefFacultyMessage.faculty_id == f.id
+        ).order_by(ChiefFacultyMessage.created_at.desc()).first()
+
+        unread_count = db.query(ChiefFacultyMessage).filter(
+            ChiefFacultyMessage.faculty_id == f.id,
+            ChiefFacultyMessage.sender_role == "FACULTY",
+            ChiefFacultyMessage.is_read == False
+        ).count()
+
+        results.append({
+            "faculty_id": f.id,
+            "faculty_name": f.full_name,
+            "faculty_email": f.email,
+            "department": f.batch or ("Staff Admin" if f.role == UserRole.ADMIN else "Faculty Member"),
+            "role": f.role,
+            "last_message": last_msg.message if last_msg else "No messages yet",
+            "last_message_at": last_msg.created_at.isoformat() if last_msg else None,
+            "unread_count": unread_count,
+            "has_conversation": last_msg is not None
+        })
+
+    # Sort with faculty who have unread messages or recent messages first
+    results.sort(key=lambda x: (x["unread_count"] > 0, x["last_message_at"] or ""), reverse=True)
+    return results
+
+@router.get("/faculty-chats/unread-count")
+async def get_chief_faculty_chats_unread_count(
+    current_admin: User = Depends(admin_only),
+    db: Session = Depends(get_db)
+):
+    """Get total count of unread messages from all faculty members for Chief Admin."""
+    is_chief = current_admin.email.lower().strip() == "utkarshkushwaha470@gmail.com" or getattr(current_admin, "is_chief_admin", False)
+    if not is_chief:
+        return {"unread_count": 0}
+
+    count = db.query(ChiefFacultyMessage).filter(
+        ChiefFacultyMessage.sender_role == "FACULTY",
+        ChiefFacultyMessage.is_read == False
+    ).count()
+
+    return {"unread_count": count}
+
+@router.get("/faculty-chat-thread/{faculty_id}")
+async def get_faculty_chat_thread(
+    faculty_id: str,
+    current_admin: User = Depends(admin_only),
+    db: Session = Depends(get_db)
+):
+    """Chief Administrator retrieves full 1-on-1 personal conversation thread with a specific faculty member."""
+    is_chief = current_admin.email.lower().strip() == "utkarshkushwaha470@gmail.com" or getattr(current_admin, "is_chief_admin", False)
+    if not is_chief:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access Denied: Only Chief Administrator UTKARSH KUSHWAHA can view Faculty chats."
+        )
+
+    faculty = db.query(User).filter(User.id == faculty_id).first()
+    if not faculty:
+        raise HTTPException(status_code=404, detail="Faculty member not found.")
+
+    # Mark all incoming messages from this faculty member as read
+    db.query(ChiefFacultyMessage).filter(
+        ChiefFacultyMessage.faculty_id == faculty_id,
+        ChiefFacultyMessage.sender_role == "FACULTY",
+        ChiefFacultyMessage.is_read == False
+    ).update({"is_read": True})
+    db.commit()
+
+    messages = db.query(ChiefFacultyMessage).filter(
+        ChiefFacultyMessage.faculty_id == faculty_id
+    ).order_by(ChiefFacultyMessage.created_at.asc()).all()
+
+    return {
+        "faculty": {
+            "id": faculty.id,
+            "full_name": faculty.full_name,
+            "email": faculty.email,
+            "department": faculty.batch or ("Staff Admin" if faculty.role == UserRole.ADMIN else "Faculty Member"),
+            "role": faculty.role
+        },
+        "messages": [
+            {
+                "id": m.id,
+                "sender_id": m.sender_id,
+                "sender_role": m.sender_role,
+                "sender_name": m.sender_name,
+                "message": m.message,
+                "is_chief": m.sender_role == "CHIEF_ADMIN",
+                "created_at": m.created_at.isoformat()
+            }
+            for m in messages
+        ]
+    }
+
+@router.post("/reply-faculty/{faculty_id}")
+async def reply_to_faculty(
+    faculty_id: str,
+    req: ChiefToFacultyReplyRequest,
+    current_admin: User = Depends(admin_only),
+    db: Session = Depends(get_db)
+):
+    """Chief Administrator sends a direct personal reply message to a Faculty member."""
+    is_chief = current_admin.email.lower().strip() == "utkarshkushwaha470@gmail.com" or getattr(current_admin, "is_chief_admin", False)
+    if not is_chief:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access Denied: Only Chief Administrator UTKARSH KUSHWAHA can reply to Faculty."
+        )
+
+    clean_text = req.message.strip()
+    if not clean_text:
+        raise HTTPException(status_code=400, detail="Reply message cannot be empty.")
+
+    faculty = db.query(User).filter(User.id == faculty_id).first()
+    if not faculty:
+        raise HTTPException(status_code=404, detail="Faculty member not found.")
+
+    reply = ChiefFacultyMessage(
+        faculty_id=faculty_id,
+        sender_id=current_admin.id,
+        sender_role="CHIEF_ADMIN",
+        sender_name="UTKARSH KUSHWAHA (Chief Admin)",
+        message=clean_text,
+        is_read=False
+    )
+    db.add(reply)
+    db.commit()
+    db.refresh(reply)
+
+    return {
+        "message": f"Personal message successfully delivered to {faculty.full_name}.",
+        "data": {
+            "id": reply.id,
+            "sender_name": reply.sender_name,
+            "sender_role": reply.sender_role,
+            "message": reply.message,
+            "created_at": reply.created_at.isoformat()
+        }
     }

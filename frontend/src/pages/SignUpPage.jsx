@@ -136,7 +136,7 @@ export default function SignUpPage({ onSignUpSuccess, onGoToLogin }) {
           <div className="inline-flex w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 items-center justify-center text-white font-extrabold text-2xl mb-3 shadow-lg shadow-indigo-500/30">
             B
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Join Brogrammers</h1>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Join Campus Hub</h1>
           <p className="text-xs text-slate-400 mt-1">Allenhouse Institute of Technology • Account Enrollment</p>
         </div>
 

@@ -37,3 +37,16 @@ class Message(Base):
     reactions = Column(String(500), default="{}", nullable=False)  # JSON e.g. {"❤️": ["user1"], "🔥": ["user2"]}
     
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class ChiefFacultyMessage(Base):
+    __tablename__ = "chief_faculty_messages"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    faculty_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    sender_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    sender_role = Column(String(20), nullable=False)  # "FACULTY" or "CHIEF_ADMIN"
+    sender_name = Column(String(100), nullable=False)
+    message = Column(Text, nullable=False)
+    is_read = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)

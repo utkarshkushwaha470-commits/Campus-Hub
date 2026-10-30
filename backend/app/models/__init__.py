@@ -1,9 +1,9 @@
 from app.database import Base
 from app.models.user import User, UserRole, AccountStatus
 from app.models.id_verification import IDVerification, IDVerificationStatus, GemmaMatchHint
-from app.models.admin_audit_log import AdminAuditLog, AuditActionType
+from app.models.admin_audit_log import AdminAuditLog, AuditActionType, FacultyDispatch
 from app.models.query import Query, QueryAnswer, QueryVisibility
-from app.models.chat import Thread, Message, ThreadType
+from app.models.chat import Thread, Message, ThreadType, ChiefFacultyMessage
 from app.models.rating import Rating, RatingStatus, PointsLedger
 from app.models.problem_box import ProblemBoxMessage, ProblemRecipientRole, ProblemStatus
 from app.models.notification import Notification, NotificationTargetType, UserNotificationRead
@@ -20,12 +20,14 @@ __all__ = [
     "GemmaMatchHint",
     "AdminAuditLog",
     "AuditActionType",
+    "FacultyDispatch",
     "Query",
     "QueryAnswer",
     "QueryVisibility",
     "Thread",
     "Message",
     "ThreadType",
+    "ChiefFacultyMessage",
     "Rating",
     "RatingStatus",
     "PointsLedger",

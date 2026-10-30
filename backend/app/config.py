@@ -3,14 +3,18 @@ from pydantic_settings import BaseSettings
 
 _backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 _default_db = os.path.join(_backend_dir, "campusconnect.db").replace("\\", "/")
+_raw_db = os.getenv("DATABASE_URL", f"sqlite:///{_default_db}")
+if _raw_db.startswith("postgres://"):
+    _raw_db = _raw_db.replace("postgres://", "postgresql://", 1)
+
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str = "Brogrammers"
+    PROJECT_NAME: str = "Campus Hub"
     COLLEGE_NAME: str = "Allenhouse Institute of Technology"
     COLLEGE_DOMAIN: str = "apex.edu"
     
     # Database (always points to persistent database in backend directory)
-    DATABASE_URL: str = os.getenv("DATABASE_URL", f"sqlite:///{_default_db}")
+    DATABASE_URL: str = _raw_db
     
     # JWT & Auth
     SECRET_KEY: str = os.getenv("SECRET_KEY", "brogrammers-ultra-secure-jwt-secret-key-32chars-minimum-!")

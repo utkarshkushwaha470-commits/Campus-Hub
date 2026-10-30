@@ -112,6 +112,13 @@ class CreateAdminRequest(BaseModel):
     password: str
     admin_proof: str
 
+class AppointFacultyRequest(BaseModel):
+    full_name: str
+    email: str
+    password: str
+    department: Optional[str] = "Computer Science & Engineering"
+    designation: Optional[str] = "Assistant Professor"
+
 class DirectChiefChatMessage(BaseModel):
     subject: str
     message: str

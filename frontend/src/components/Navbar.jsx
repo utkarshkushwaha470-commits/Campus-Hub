@@ -1,11 +1,43 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { api } from '../services/api';
 
-export default function Navbar({ user, activePage, setActivePage, onLogout }) {
+export default function Navbar({ user, activePage, setActivePage, onLogout, hasUnreadMessages }) {
   if (!user) return null;
 
   const isPending = user.status === 'PENDING';
   const isRejected = user.status === 'REJECTED';
   const isAdmin = user.role === 'ADMIN';
+
+  // Role checks
+  const isChiefAdmin = user.is_chief_admin || (user.email && user.email.toLowerCase().trim() === 'utkarshkushwaha470@gmail.com');
+  const isFacultyOrSubAdmin = (user.role === 'FACULTY' || user.role === 'ADMIN') && !isChiefAdmin;
+  const isStudent = user.role === 'STUDENT';
+
+  // Unread indicators for personal chat
+  const [chiefFacultyUnread, setChiefFacultyUnread] = useState(0);
+  const [facultyUnreadFromChief, setFacultyUnreadFromChief] = useState(0);
+
+  useEffect(() => {
+    if (isPending || isRejected || isStudent) return;
+
+    const checkPersonalChatUnread = async () => {
+      try {
+        if (isChiefAdmin) {
+          const res = await api.getFacultyChatsUnreadCount();
+          setChiefFacultyUnread(res?.unread_count || 0);
+        } else if (isFacultyOrSubAdmin) {
+          const res = await api.getFacultyUnreadFromChief();
+          setFacultyUnreadFromChief(res?.unread_count || 0);
+        }
+      } catch (err) {
+        // quiet error in dev
+      }
+    };
+
+    checkPersonalChatUnread();
+    const interval = setInterval(checkPersonalChatUnread, 4000);
+    return () => clearInterval(interval);
+  }, [user, isChiefAdmin, isFacultyOrSubAdmin, isPending, isRejected, isStudent]);
 
   return (
     <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800">
@@ -20,7 +52,7 @@ export default function Navbar({ user, activePage, setActivePage, onLogout }) {
           </div>
           <div>
             <div className="font-extrabold text-slate-100 text-base leading-tight tracking-tight flex items-center gap-1.5">
-              Brogrammers
+              Campus Hub
               <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-blue-950 text-blue-400 border border-blue-800/50">PWA</span>
             </div>
             <div className="text-[11px] text-slate-400 font-medium">Allenhouse Institute of Technology</div>
@@ -41,16 +73,22 @@ export default function Navbar({ user, activePage, setActivePage, onLogout }) {
               Dashboard
             </button>
 
-            {/* Instagram Style Chat Nav Pill */}
+            {/* Instagram Style Chat Nav Pill with Unread Dot */}
             <button
               onClick={() => setActivePage('chat')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 relative ${
                 activePage === 'chat'
                   ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-sm'
                   : 'text-slate-300 hover:text-white hover:bg-slate-800'
               }`}
             >
               <span>💬 Campus DMs</span>
+              {hasUnreadMessages && (
+                <span className="relative flex h-2.5 w-2.5 ml-0.5" title="New Message Received!">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500 shadow-md shadow-rose-500/50"></span>
+                </span>
+              )}
             </button>
 
             <button
@@ -108,6 +146,51 @@ export default function Navbar({ user, activePage, setActivePage, onLogout }) {
               >
                 <span>🛡️</span>
                 <span>Admin Portal</span>
+              </button>
+            )}
+
+            {/* CHIEF ADMINISTRATOR EXCLUSIVE: Direct Chat with Faculty */}
+            {isChiefAdmin && (
+              <button
+                onClick={() => setActivePage('chief-faculty-chat')}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 relative ${
+                  activePage === 'chief-faculty-chat'
+                    ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-slate-950 font-black shadow-lg shadow-amber-500/20'
+                    : 'text-amber-400 hover:text-white hover:bg-amber-950/40 border border-amber-500/40'
+                }`}
+              >
+                <span>💬 Faculty Direct Chat</span>
+                {chiefFacultyUnread > 0 && (
+                  <span className="relative flex h-2 w-2 ml-0.5" title="New Message from Faculty!">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500 shadow-sm shadow-rose-500"></span>
+                  </span>
+                )}
+                {chiefFacultyUnread > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full bg-rose-600 text-white text-[9px] font-black">
+                    {chiefFacultyUnread}
+                  </span>
+                )}
+              </button>
+            )}
+
+            {/* FACULTY & STAFF ADMINS: Direct Chat with Chief Admin (Strictly Hidden for Students) */}
+            {isFacultyOrSubAdmin && (
+              <button
+                onClick={() => setActivePage('chief-chat')}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 relative ${
+                  activePage === 'chief-chat'
+                    ? 'bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 text-white font-black shadow-lg shadow-purple-600/20'
+                    : 'text-purple-300 hover:text-white hover:bg-purple-950/40 border border-purple-500/40'
+                }`}
+              >
+                <span>💬 Chat with Chief Admin</span>
+                {facultyUnreadFromChief > 0 && (
+                  <span className="relative flex h-2 w-2 ml-0.5" title="New Reply from Chief Admin!">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500 shadow-sm shadow-rose-500"></span>
+                  </span>
+                )}
               </button>
             )}
 

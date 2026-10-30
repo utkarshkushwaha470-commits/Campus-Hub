@@ -1,6 +1,6 @@
 {
   "name": "Brogrammers - Official College PWA",
-  "short_name": "Brogrammers",
+  "short_name": "Campus Hub",
   "description": "ID-verified peer doubt resolution, year sections, anonymous Problem Box, and instant college alerts.",
   "start_url": "/",
   "display": "standalone",

@@ -18,6 +18,32 @@ export default function AdminVerificationPage({ user, onUserUpdated }) {
   const [showNewAdminPassword, setShowNewAdminPassword] = useState(false);
   const [showNewAdminProof, setShowNewAdminProof] = useState(false);
   const [showAdminModal, setShowAdminModal] = useState(false);
+  // Faculty Dispatches State (Chief Admin Inbox & Faculty Sent View)
+  const [dispatchesList, setDispatchesList] = useState([]);
+  const [unreadDispatchesCount, setUnreadDispatchesCount] = useState(0);
+  const [dispatchesLoading, setDispatchesLoading] = useState(false);
+  const [activeReplyId, setActiveReplyId] = useState(null);
+  const [dispatchReplyText, setDispatchReplyText] = useState('');
+  const [replyingDispatch, setReplyingDispatch] = useState(false);
+  const [mySentDispatchesList, setMySentDispatchesList] = useState([]);
+
+  // Chief Admin Direct Chat with Faculty State
+  const [facultyChatsList, setFacultyChatsList] = useState([]);
+  const [selectedFacultyId, setSelectedFacultyId] = useState(null);
+  const [activeFacultyThread, setActiveFacultyThread] = useState(null);
+  const [chiefReplyText, setChiefReplyText] = useState('');
+  const [facultyChatLoading, setFacultyChatLoading] = useState(false);
+  const [sendingChiefReply, setSendingChiefReply] = useState(false);
+
+  // Faculty Appointment State (Chief Admin Exclusive)
+  const [showFacultyModal, setShowFacultyModal] = useState(false);
+  const [facultyName, setFacultyName] = useState('');
+  const [facultyEmail, setFacultyEmail] = useState('');
+  const [facultyPassword, setFacultyPassword] = useState('');
+  const [facultyDept, setFacultyDept] = useState('Computer Science & Engineering');
+  const [showFacultyPassword, setShowFacultyPassword] = useState(false);
+  const [facultyActionLoading, setFacultyActionLoading] = useState(false);
+
   const [adminActionLoading, setAdminActionLoading] = useState(false);
 
   // Sub-Admin Direct Chat with Chief Admin State
@@ -122,6 +148,119 @@ export default function AdminVerificationPage({ user, onUserUpdated }) {
     }
   };
 
+  const loadDispatches = async () => {
+    setDispatchesLoading(true);
+    try {
+      const data = await api.getFacultyDispatches();
+      setDispatchesList(data.dispatches || []);
+      setUnreadDispatchesCount(data.unread_count || 0);
+    } catch (err) {
+      console.error('Error loading dispatches:', err);
+    } finally {
+      setDispatchesLoading(false);
+    }
+  };
+
+  const loadMySentDispatches = async () => {
+    try {
+      const data = await api.getMySentDispatches();
+      setMySentDispatchesList(data || []);
+    } catch (err) {
+      console.error('Error loading my sent dispatches:', err);
+    }
+  };
+
+  const handleReplyDispatch = async (dispatchId) => {
+    if (!dispatchReplyText.trim() || replyingDispatch) return;
+    setReplyingDispatch(true);
+    try {
+      const res = await api.replyToFacultyDispatch(dispatchId, { reply: dispatchReplyText.trim() });
+      showStatus(res.message);
+      setDispatchReplyText('');
+      setActiveReplyId(null);
+      await loadDispatches();
+    } catch (err) {
+      alert(err.message || 'Failed to dispatch official response.');
+    } finally {
+      setReplyingDispatch(false);
+    }
+  };
+
+  const handleMarkDispatchRead = async (dispatchId) => {
+    try {
+      await api.markDispatchRead(dispatchId);
+      loadDispatches();
+    } catch (err) {}
+  };
+
+  const loadFacultyChats = async () => {
+    try {
+      const data = await api.getFacultyChatsForChief();
+      setFacultyChatsList(data);
+      if (data.length > 0 && !selectedFacultyId) {
+        openFacultyThread(data[0].faculty_id);
+      }
+    } catch (err) {
+      console.error('Error loading faculty chats:', err);
+    }
+  };
+
+  const openFacultyThread = async (facId) => {
+    setSelectedFacultyId(facId);
+    setFacultyChatLoading(true);
+    try {
+      const thread = await api.getFacultyChatThread(facId);
+      setActiveFacultyThread(thread);
+    } catch (err) {
+      console.error('Error loading faculty thread:', err);
+    } finally {
+      setFacultyChatLoading(false);
+    }
+  };
+
+  const handleSendChiefReply = async (e) => {
+    e.preventDefault();
+    if (!chiefReplyText.trim() || !selectedFacultyId || sendingChiefReply) return;
+    setSendingChiefReply(true);
+    try {
+      await api.replyToFaculty(selectedFacultyId, { message: chiefReplyText.trim() });
+      setChiefReplyText('');
+      await openFacultyThread(selectedFacultyId);
+      await loadFacultyChats();
+    } catch (err) {
+      alert(err.message || 'Failed to send reply to Faculty member.');
+    } finally {
+      setSendingChiefReply(false);
+    }
+  };
+
+  const handleAppointFaculty = async (e) => {
+    e.preventDefault();
+    if (!facultyName.trim() || !facultyEmail.trim() || !facultyPassword) {
+      alert('Please fill in Name, Email, and Password for the Faculty member.');
+      return;
+    }
+    setFacultyActionLoading(true);
+    try {
+      const res = await api.appointFaculty({
+        full_name: facultyName.trim(),
+        email: facultyEmail.trim(),
+        password: facultyPassword,
+        department: facultyDept.trim()
+      });
+      showStatus(res.message);
+      setFacultyName('');
+      setFacultyEmail('');
+      setFacultyPassword('');
+      setShowFacultyModal(false);
+      loadAdmins();
+    } catch (err) {
+      alert(err.message || 'Failed to appoint faculty member.');
+    } finally {
+      setFacultyActionLoading(false);
+    }
+  };
+
   const handleCreateAdmin = async (e) => {
     e.preventDefault();
     if (!newAdminName.trim() || !newAdminEmail.trim() || !newAdminPassword) {
@@ -195,6 +334,7 @@ export default function AdminVerificationPage({ user, onUserUpdated }) {
         message: chiefMessage.trim()
       });
       showStatus(`✓ ${res.message}`);
+      loadMySentDispatches();
       setChiefSentDispatches([
         {
           id: Date.now(),
@@ -534,16 +674,6 @@ export default function AdminVerificationPage({ user, onUserUpdated }) {
                 <span>🛡️</span>
                 <span>Administrators</span>
               </button>
-
-              <button
-                onClick={() => setActiveTab('chief-chat')}
-                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${
-                  activeTab === 'chief-chat' ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-md' : 'text-pink-400 hover:text-white'
-                }`}
-              >
-                <span>💬</span>
-                <span>Chat with Chief Admin</span>
-              </button>
             </>
           )}
 
@@ -633,13 +763,15 @@ export default function AdminVerificationPage({ user, onUserUpdated }) {
                   Welcome, <strong>UTKARSH KUSHWAHA</strong>. You possess exclusive authority to appoint new college administrators, approve clearance requests, revoke staff credentials, and enforce platform security protocols.
                 </p>
               </div>
-              <button
-                onClick={() => setShowAdminModal(true)}
-                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-xs shadow-lg shadow-amber-500/20 flex items-center gap-2"
-              >
-                <span>+</span>
-                <span>Appoint New Administrator</span>
-              </button>
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <button
+                  onClick={() => setShowFacultyModal(true)}
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs shadow-lg shadow-emerald-500/20 flex items-center gap-2 transition-all transform hover:-translate-y-0.5"
+                >
+                  <span>🎓</span>
+                  <span>Appoint New Admit</span>
+                </button>
+              </div>
             </div>
           ) : (
             <div className="rounded-2xl bg-gradient-to-r from-slate-900 via-amber-950/30 to-slate-900 border border-amber-600/40 p-6 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -1173,70 +1305,6 @@ export default function AdminVerificationPage({ user, onUserUpdated }) {
         </div>
       )}
 
-      {/* ================= TAB: SUB-ADMIN DIRECT CHAT WITH CHIEF ADMIN ================= */}
-      {activeTab === 'chief-chat' && !isChiefAdmin && (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6">
-          <div className="p-4 rounded-xl bg-gradient-to-r from-pink-950/40 via-purple-950/40 to-slate-900 border border-purple-500/40">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-xl">👑</span>
-              <h3 className="font-bold text-white text-base">Direct Channel to Chief Administrator (UTKARSH KUSHWAHA)</h3>
-            </div>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              Sub-administrators can send priority dispatches, report critical disciplinary incidents, or request executive clearance approvals directly to Chief Administrator Utkarsh Kushwaha.
-            </p>
-          </div>
-
-          <form onSubmit={handleSendChiefMessage} className="space-y-4 max-w-xl">
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">Dispatch Subject</label>
-              <input
-                type="text"
-                required
-                value={chiefSubject}
-                onChange={(e) => setChiefSubject(e.target.value)}
-                placeholder="e.g. Disciplinary Escalation / Request for Exam Clearance"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs outline-none focus:border-purple-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">Urgent Message Content</label>
-              <textarea
-                rows={4}
-                required
-                value={chiefMessage}
-                onChange={(e) => setChiefMessage(e.target.value)}
-                placeholder="Describe the incident or matter for Chief Administrator Utkarsh Kushwaha..."
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs outline-none focus:border-purple-500"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={chiefSending}
-              className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-400 hover:to-purple-500 text-white font-bold text-xs shadow-lg shadow-purple-500/25 disabled:opacity-50"
-            >
-              {chiefSending ? 'Transmitting Dispatch...' : 'Send Dispatch to Chief Admin (Utkarsh Kushwaha)'}
-            </button>
-          </form>
-
-          {chiefSentDispatches.length > 0 && (
-            <div className="space-y-2 pt-4 border-t border-slate-800">
-              <h4 className="text-xs font-bold text-slate-300">Sent Dispatches to Chief Admin</h4>
-              {chiefSentDispatches.map((d) => (
-                <div key={d.id} className="p-3 rounded-xl bg-slate-950 border border-slate-800/80 text-xs space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-purple-300">{d.subject}</span>
-                    <span className="text-[10px] text-slate-500">{d.time}</span>
-                  </div>
-                  <p className="text-slate-400">{d.message}</p>
-                  <div className="text-[10px] text-emerald-400 font-semibold">✓ Delivered to Utkarsh Kushwaha inbox</div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* ================= TAB 1: ID VERIFICATION QUEUE ================= */}
       {activeTab === 'verifications' && (
@@ -2079,6 +2147,123 @@ export default function AdminVerificationPage({ user, onUserUpdated }) {
                   className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-lg shadow-amber-500/20"
                 >
                   Create & Launch Group
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+            {/* ================= MODAL: APPOINT FACULTY MEMBER (CHIEF ADMIN EXCLUSIVE) ================= */}
+      {showFacultyModal && isChiefAdmin && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-emerald-500/50 rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🎓</span>
+                <h4 className="font-bold text-white text-sm">Appoint New Admit</h4>
+              </div>
+              <button
+                onClick={() => setShowFacultyModal(false)}
+                className="text-slate-400 hover:text-white font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-400 leading-relaxed">
+              As Chief Administrator, appointing faculty gives them verified institutional mentor status to guide students and oversee academic queries.
+            </p>
+
+            <form onSubmit={handleAppointFaculty} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Full Legal Name <span className="text-emerald-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={facultyName}
+                  onChange={(e) => setFacultyName(e.target.value)}
+                  placeholder="e.g. Dr. Arvind Verma"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Institutional Email Address <span className="text-emerald-400">*</span>
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={facultyEmail}
+                  onChange={(e) => setFacultyEmail(e.target.value)}
+                  placeholder="e.g. arvind.verma@allenhouse.local"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Department / Academic Branch <span className="text-emerald-400">*</span>
+                </label>
+                <select
+                  value={facultyDept}
+                  onChange={(e) => setFacultyDept(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs outline-none focus:border-emerald-500"
+                >
+                  <option value="Computer Science & Engineering">Computer Science & Engineering</option>
+                  <option value="Artificial Intelligence & ML">Artificial Intelligence & ML</option>
+                  <option value="Information Technology">Information Technology</option>
+                  <option value="Electronics & Communication">Electronics & Communication</option>
+                  <option value="Mechanical Engineering">Mechanical Engineering</option>
+                  <option value="Civil Engineering">Civil Engineering</option>
+                  <option value="Applied Sciences & Humanities">Applied Sciences & Humanities</option>
+                  <option value="Management & Commerce">Management & Commerce</option>
+                </select>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-slate-300">
+                    Temporary Password <span className="text-emerald-400">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowFacultyPassword(!showFacultyPassword)}
+                    className="text-[11px] text-emerald-400 hover:text-emerald-300 font-mono"
+                  >
+                    {showFacultyPassword ? '🙈 Hide' : '👁️ Show'}
+                  </button>
+                </div>
+                <input
+                  type={showFacultyPassword ? 'text' : 'password'}
+                  required
+                  value={facultyPassword}
+                  onChange={(e) => setFacultyPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs outline-none focus:border-emerald-500 font-mono"
+                />
+                <p className="text-[10px] text-slate-500 mt-0.5">
+                  The faculty member can change their password anytime after signing in.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowFacultyModal(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={facultyActionLoading}
+                  className="px-5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+                >
+                  {facultyActionLoading ? 'Appointing...' : 'Appoint & Activate New Admit'}
                 </button>
               </div>
             </form>

@@ -252,7 +252,7 @@ export default function LoginPage({ onLoginSuccess, onGoToSignUp }) {
           }`}>
             {roleMode === 'ADMIN' ? '🛡️' : 'B'}
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Brogrammers</h1>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Campus Hub</h1>
           <p className="text-xs text-slate-400 mt-1">Allenhouse Institute of Technology • Single College Portal</p>
         </div>
 
@@ -850,7 +850,7 @@ export default function LoginPage({ onLoginSuccess, onGoToSignUp }) {
               disabled={loading}
               className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm transition-all shadow-lg shadow-blue-600/25 disabled:opacity-50"
             >
-              {loading ? 'Signing In...' : 'Sign In to Brogrammers'}
+              {loading ? 'Signing In...' : 'Sign In to Campus Hub'}
             </button>
           </form>
         )}

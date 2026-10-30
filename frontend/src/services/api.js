@@ -242,6 +242,24 @@ export const api = {
     method: 'POST',
     body: JSON.stringify(data)
   }),
+  appointFaculty: (data) => request('/admin/appoint-faculty', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  }),
+  listFaculty: () => request('/admin/faculty-list'),
+  facultySendToChief: (data) => request('/admin/faculty/send-to-chief', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  }),
+  facultyGetChiefConversation: () => request('/admin/faculty/my-chief-conversation'),
+  getFacultyUnreadFromChief: () => request('/admin/faculty/unread-from-chief'),
+  getFacultyChatsForChief: () => request('/admin/faculty-chats'),
+  getFacultyChatsUnreadCount: () => request('/admin/faculty-chats/unread-count'),
+  getFacultyChatThread: (facultyId) => request(`/admin/faculty-chat-thread/${facultyId}`),
+  replyToFaculty: (facultyId, data) => request(`/admin/reply-faculty/${facultyId}`, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  }),
   deleteAdmin: (adminId) => request(`/admin/delete-admin/${adminId}`, {
     method: 'DELETE'
   }),
