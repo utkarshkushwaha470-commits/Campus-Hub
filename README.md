@@ -122,4 +122,4 @@ Campus-Hub/
 ## 👤 Author & Chief Administrator
 **UTKARSH KUSHWAHA**  
 Chief Administrator — Allenhouse Institute of Technology  
-Email: `utkarshkushwaha470@gmail.com`
+
