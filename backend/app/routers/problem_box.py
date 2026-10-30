@@ -162,7 +162,7 @@ async def forward_problem_box_anonymously(
 
     # Anonymized payload sent to institutional authority
     anonymized_payload = {
-        "institution": "CampusConnect Official Incident Report",
+        "institution": "Brogrammers Official Incident Report",
         "addressed_to": req.target_authority_name,
         "role": msg.recipient_role,
         "subject": msg.subject,

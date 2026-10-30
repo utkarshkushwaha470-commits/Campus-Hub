@@ -230,5 +230,20 @@ export const api = {
   takeModerationAction: (targetUserId, actionType, reason) => request('/moderation/action', {
     method: 'POST',
     body: JSON.stringify({ target_user_id: targetUserId, action_type: actionType, reason })
+  }),
+
+  // Chief Administrator Functions (UTKARSH KUSHWAHA)
+  listAdmins: () => request('/admin/admins-list'),
+  createAdmin: (data) => request('/admin/create-admin', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  }),
+  deleteAdmin: (adminId) => request(`/admin/delete-admin/${adminId}`, {
+    method: 'DELETE'
+  }),
+  getAdminsWorkDossier: (adminId = '') => request(`/admin/admins-work-dossier${adminId ? `?admin_id=${adminId}` : ''}`),
+  sendChiefMessage: (data) => request('/admin/chief-message', {
+    method: 'POST',
+    body: JSON.stringify(data)
   })
 };

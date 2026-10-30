@@ -1,9 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import SettingsPage from './SettingsPage';
 
-export default function AdminVerificationPage({ user }) {
-  const [activeTab, setActiveTab] = useState('verifications'); // 'verifications' | 'students' | 'groups' | 'problem-box' | 'notifications' | 'audit'
+export default function AdminVerificationPage({ user, onUserUpdated }) {
+  const isChiefAdmin = user?.email?.toLowerCase() === 'utkarshkushwaha470@gmail.com' || Boolean(user?.is_chief_admin);
+
+  const [activeTab, setActiveTab] = useState(isChiefAdmin ? 'chief-deck' : 'verifications'); // 'chief-deck' | 'chief-chat' | 'verifications' | 'students' | 'groups' | 'problem-box' | 'notifications' | 'audit' | 'settings'
   
+  // Chief Admin Deck State
+  const [adminsList, setAdminsList] = useState([]);
+  const [newAdminName, setNewAdminName] = useState('');
+  const [newAdminEmail, setNewAdminEmail] = useState('');
+  const [newAdminPassword, setNewAdminPassword] = useState('');
+  const [newAdminProof, setNewAdminProof] = useState('');
+  const [showAdminModal, setShowAdminModal] = useState(false);
+  const [adminActionLoading, setAdminActionLoading] = useState(false);
+
+  // Sub-Admin Direct Chat with Chief Admin State
+  const [chiefSubject, setChiefSubject] = useState('');
+  const [chiefMessage, setChiefMessage] = useState('');
+  const [chiefSending, setChiefSending] = useState(false);
+  const [chiefSentDispatches, setChiefSentDispatches] = useState([]);
+
+  // Chief Admin Work Dossier & Oversight State
+  const [workDossiers, setWorkDossiers] = useState([]);
+  const [selectedAdminIdForDossier, setSelectedAdminIdForDossier] = useState(null);
+  const [dossierLoading, setDossierLoading] = useState(false);
+
   // ID Verification Queue State
   const [verifications, setVerifications] = useState([]);
   const [verifFilter, setVerifFilter] = useState('PENDING');
@@ -50,7 +73,9 @@ export default function AdminVerificationPage({ user }) {
   const [statusMsg, setStatusMsg] = useState(null);
 
   useEffect(() => {
-    if (activeTab === 'verifications') loadVerifications();
+    if (activeTab === 'chief-deck') loadAdmins();
+    else if (activeTab === 'work-dossier') loadWorkDossiers();
+    else if (activeTab === 'verifications') loadVerifications();
     else if (activeTab === 'students') loadStudents();
     else if (activeTab === 'groups') loadGroups();
     else if (activeTab === 'problem-box') loadProblemBoxQueue();
@@ -60,6 +85,107 @@ export default function AdminVerificationPage({ user }) {
   const showStatus = (msg) => {
     setStatusMsg(msg);
     setTimeout(() => setStatusMsg(null), 3500);
+  };
+
+  const loadAdmins = async () => {
+    setLoading(true);
+    try {
+      const data = await api.listAdmins();
+      setAdminsList(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadWorkDossiers = async (adminId = '') => {
+    setDossierLoading(true);
+    try {
+      const data = await api.getAdminsWorkDossier(adminId);
+      setWorkDossiers(data);
+      if (data.length > 0) {
+        if (adminId) {
+          setSelectedAdminIdForDossier(adminId);
+        } else if (!selectedAdminIdForDossier) {
+          setSelectedAdminIdForDossier(data[0].admin_id);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setDossierLoading(false);
+    }
+  };
+
+  const handleCreateAdmin = async (e) => {
+    e.preventDefault();
+    if (!newAdminName.trim() || !newAdminEmail.trim() || !newAdminPassword) {
+      alert('Please fill in Name, Email, and Password for the new administrator.');
+      return;
+    }
+    setAdminActionLoading(true);
+    try {
+      const res = await api.createAdmin({
+        full_name: newAdminName.trim(),
+        email: newAdminEmail.trim(),
+        password: newAdminPassword,
+        admin_proof: newAdminProof.trim() || 'staffadmin2026'
+      });
+      showStatus(res.message);
+      setNewAdminName('');
+      setNewAdminEmail('');
+      setNewAdminPassword('');
+      setNewAdminProof('');
+      setShowAdminModal(false);
+      loadAdmins();
+    } catch (err) {
+      alert(err.message || 'Failed to appoint new administrator.');
+    } finally {
+      setAdminActionLoading(false);
+    }
+  };
+
+  const handleDeleteAdmin = async (adminId, adminName) => {
+    if (!confirm(`Are you sure you want to revoke administrator access for ${adminName}?`)) return;
+    try {
+      const res = await api.deleteAdmin(adminId);
+      showStatus(res.message);
+      loadAdmins();
+    } catch (err) {
+      alert(err.message || 'Error revoking administrator access.');
+    }
+  };
+
+  const handleSendChiefMessage = async (e) => {
+    e.preventDefault();
+    if (!chiefSubject.trim() || !chiefMessage.trim()) {
+      alert('Please enter a subject and message for the Chief Administrator.');
+      return;
+    }
+    setChiefSending(true);
+    try {
+      const res = await api.sendChiefMessage({
+        subject: chiefSubject.trim(),
+        message: chiefMessage.trim()
+      });
+      showStatus(`✓ ${res.message}`);
+      setChiefSentDispatches([
+        {
+          id: Date.now(),
+          subject: chiefSubject,
+          message: chiefMessage,
+          time: new Date().toLocaleTimeString()
+        },
+        ...chiefSentDispatches
+      ]);
+      setChiefSubject('');
+      setChiefMessage('');
+    } catch (err) {
+      alert(err.message || 'Failed to dispatch message to Chief Admin.');
+    } finally {
+      setChiefSending(false);
+    }
   };
 
   const loadVerifications = async () => {
@@ -316,19 +442,69 @@ export default function AdminVerificationPage({ user }) {
       <div className="rounded-2xl bg-gradient-to-r from-slate-900 via-slate-900 to-amber-950/40 border border-slate-800 p-6 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-950 text-amber-300 border border-amber-800/40">
-              Administrative Control Deck
-            </span>
-            <span className="text-xs text-slate-400 font-semibold">• 2FA Authenticated</span>
+            {isChiefAdmin ? (
+              <>
+                <span className="px-2.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 shadow-sm">
+                  👑 Chief Administrator Supreme Command
+                </span>
+                <span className="text-xs text-amber-300 font-bold">• UTKARSH KUSHWAHA (Executive Authority)</span>
+              </>
+            ) : (
+              <>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-950 text-amber-300 border border-amber-800/40">
+                  🛡️ Sub-Administrator Control Deck
+                </span>
+                <span className="text-xs text-slate-400 font-semibold">• College Administration</span>
+              </>
+            )}
           </div>
-          <h2 className="text-xl font-bold text-white">College Admin Management Portal</h2>
+          <h2 className="text-xl font-bold text-white">
+            {isChiefAdmin ? 'Chief Administrator Command Center' : 'College Administrator Portal'}
+          </h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            Student Management & Termination • Purpose Groups • ID OCR Review • Problem Box • WebSocket Alerts
+            {isChiefAdmin
+              ? 'Administrator Appointment & Revocation • Student Terminations • Purpose Groups • ID Verifications'
+              : 'Student Management • Purpose Groups • ID OCR Review • Problem Box • Direct Line to Chief Admin'}
           </p>
         </div>
 
         {/* Tab Pills */}
         <div className="flex flex-wrap gap-1 bg-slate-950 p-1.5 rounded-xl border border-slate-800">
+          {/* Chief Admin or Sub-Admin exclusive Tab */}
+          {isChiefAdmin ? (
+            <>
+              <button
+                onClick={() => { setActiveTab('chief-deck'); loadAdmins(); }}
+                className={`px-3 py-1.5 text-xs font-black rounded-lg transition-all flex items-center gap-1.5 ${
+                  activeTab === 'chief-deck' ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 shadow-md font-extrabold' : 'text-amber-400 hover:text-white'
+                }`}
+              >
+                <span>👑</span>
+                <span>Manage Admins</span>
+              </button>
+
+              <button
+                onClick={() => { setActiveTab('work-dossier'); loadWorkDossiers(); }}
+                className={`px-3 py-1.5 text-xs font-black rounded-lg transition-all flex items-center gap-1.5 ${
+                  activeTab === 'work-dossier' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md font-extrabold' : 'text-blue-400 hover:text-white'
+                }`}
+              >
+                <span>📊</span>
+                <span>Admins Work Oversight</span>
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => setActiveTab('chief-chat')}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${
+                activeTab === 'chief-chat' ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-md' : 'text-pink-400 hover:text-white'
+              }`}
+            >
+              <span>💬</span>
+              <span>Chat with Chief Admin</span>
+            </button>
+          )}
+
           <button
             onClick={() => setActiveTab('verifications')}
             className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
@@ -377,6 +553,14 @@ export default function AdminVerificationPage({ user }) {
           >
             📜 Audit Logs
           </button>
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1 ${
+              activeTab === 'settings' ? 'bg-amber-500 text-slate-950 shadow-sm font-black' : 'text-amber-400 hover:text-white'
+            }`}
+          >
+            <span>⚙️ Settings & Proof</span>
+          </button>
         </div>
       </div>
 
@@ -384,6 +568,450 @@ export default function AdminVerificationPage({ user }) {
         <div className="p-3.5 rounded-xl bg-slate-900 border border-amber-500/60 text-amber-300 text-xs shadow-lg flex items-center justify-between">
           <span>{statusMsg}</span>
           <button onClick={() => setStatusMsg(null)} className="text-slate-400 hover:text-white font-bold ml-2">×</button>
+        </div>
+      )}
+
+      {/* ================= TAB: CHIEF ADMINISTRATOR DECK (UTKARSH KUSHWAHA) ================= */}
+      {activeTab === 'chief-deck' && isChiefAdmin && (
+        <div className="space-y-6">
+          {/* Executive Clearance Header */}
+          <div className="rounded-2xl bg-gradient-to-r from-amber-950/80 via-slate-900 to-yellow-950/60 border border-amber-500/60 p-6 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="px-2.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-amber-500 text-slate-950">
+                  Platform Director
+                </span>
+                <span className="text-xs text-amber-300 font-bold">• Supreme Governance</span>
+              </div>
+              <h3 className="text-xl font-black text-white flex items-center gap-2">
+                <span>👑 Institutional Administrator Authority</span>
+              </h3>
+              <p className="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">
+                Welcome, <strong>UTKARSH KUSHWAHA</strong>. You possess exclusive authority to appoint new college administrators, revoke staff credentials, and enforce platform security protocols.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowAdminModal(true)}
+              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-xs shadow-lg shadow-amber-500/20 flex items-center gap-2"
+            >
+              <span>+</span>
+              <span>Appoint New Administrator</span>
+            </button>
+          </div>
+
+          {/* Administrators Roster Table */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-bold text-white text-base">Appointed Administrators Roster ({adminsList.length})</h4>
+                <p className="text-xs text-slate-400">All registered institutional staff holding administrative clearance.</p>
+              </div>
+              <button
+                onClick={loadAdmins}
+                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+              >
+                ↻ Refresh List
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-950 text-slate-400 uppercase text-[10px] font-bold border-b border-slate-800">
+                  <tr>
+                    <th className="px-4 py-3">Administrator</th>
+                    <th className="px-4 py-3">Email Address</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Clearance Authority</th>
+                    <th className="px-4 py-3 text-right">Executive Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60 text-slate-300">
+                  {adminsList.map((adm) => {
+                    const isChief = adm.email.toLowerCase() === 'utkarshkushwaha470@gmail.com' || adm.is_chief_admin;
+                    return (
+                      <tr key={adm.id} className="hover:bg-slate-800/40 transition">
+                        <td className="px-4 py-3 font-semibold text-white flex items-center gap-2">
+                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs ${
+                            isChief ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-300'
+                          }`}>
+                            {isChief ? '👑' : '🛡️'}
+                          </div>
+                          <div>
+                            <div>{adm.full_name}</div>
+                            <div className="text-[10px] text-slate-500 font-mono">{adm.crn_or_roll_number}</div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 font-mono text-slate-400">{adm.email}</td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                            adm.status === 'APPROVED' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/50' : 'bg-rose-950 text-rose-400'
+                          }`}>
+                            {adm.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          {isChief ? (
+                            <span className="px-2.5 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 text-[10px] font-black uppercase shadow-sm">
+                              Chief Administrator [Permanent]
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px] font-semibold border border-slate-700">
+                              Sub-Administrator (Staff)
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => {
+                                setSelectedAdminIdForDossier(adm.id);
+                                setActiveTab('work-dossier');
+                                loadWorkDossiers(adm.id);
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-blue-950 hover:bg-blue-900 border border-blue-800/60 text-blue-300 hover:text-white font-bold text-xs transition flex items-center gap-1"
+                              title="Inspect this administrator's complete work record"
+                            >
+                              <span>🔍</span>
+                              <span>Work Dossier</span>
+                            </button>
+                            {isChief ? (
+                              <span className="text-[11px] text-amber-400 font-semibold italic pl-1">Permanent Director</span>
+                            ) : (
+                              <button
+                                onClick={() => handleDeleteAdmin(adm.id, adm.full_name)}
+                                className="px-2.5 py-1 rounded-lg bg-rose-950 hover:bg-rose-900 border border-rose-800/60 text-rose-300 hover:text-white font-bold text-xs transition"
+                              >
+                                Revoke
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= TAB: CHIEF ADMIN - ADMINS WORK OVERSIGHT DOSSIER ================= */}
+      {activeTab === 'work-dossier' && isChiefAdmin && (
+        <div className="space-y-6">
+          {/* Header Banner */}
+          <div className="p-5 rounded-2xl bg-gradient-to-r from-blue-950/60 via-indigo-950/40 to-slate-900 border border-blue-500/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">📊</span>
+                <h3 className="text-lg font-black text-white">
+                  Administrators Work Dossier & Activity Oversight
+                </h3>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-900 text-blue-200 border border-blue-700 font-bold uppercase tracking-wider">
+                  Chief Admin Access
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">
+                Complete institutional oversight for <strong>Chief Administrator UTKARSH KUSHWAHA</strong>. Monitor all administrators' work productivity, verifications handled, disciplinary bans enacted, groups configured, terminal IP addresses, and detailed chronological activity logs.
+              </p>
+            </div>
+            <button
+              onClick={() => loadWorkDossiers()}
+              disabled={dossierLoading}
+              className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition flex items-center gap-1.5 shadow-lg shadow-blue-600/30 self-start sm:self-auto disabled:opacity-50"
+            >
+              <span>{dossierLoading ? '⏳' : '↻'}</span>
+              <span>{dossierLoading ? 'Syncing...' : 'Sync All Work Data'}</span>
+            </button>
+          </div>
+
+          {/* Admin Selection Carousel / Pills */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
+            <span className="text-xs font-bold text-slate-400 whitespace-nowrap px-1">Select Administrator:</span>
+            {workDossiers.map((d) => {
+              const isSelected = (selectedAdminIdForDossier === d.admin_id) || (!selectedAdminIdForDossier && workDossiers[0]?.admin_id === d.admin_id);
+              const isChief = d.is_chief_admin || d.email.toLowerCase() === 'utkarshkushwaha470@gmail.com';
+              return (
+                <button
+                  key={d.admin_id}
+                  onClick={() => setSelectedAdminIdForDossier(d.admin_id)}
+                  className={`px-3.5 py-2 rounded-xl border text-xs font-bold transition flex items-center gap-2 whitespace-nowrap ${
+                    isSelected
+                      ? 'bg-blue-600 border-blue-400 text-white shadow-lg shadow-blue-600/30'
+                      : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  <span>{isChief ? '👑' : '🛡️'}</span>
+                  <span>{d.full_name}</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
+                    isSelected ? 'bg-blue-800 text-blue-100' : 'bg-slate-800 text-slate-400'
+                  }`}>
+                    {d.metrics?.total_actions || 0} acts
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Active Dossier View */}
+          {(() => {
+            const currentDossier = workDossiers.find(d => d.admin_id === selectedAdminIdForDossier) || workDossiers[0];
+            if (!currentDossier) {
+              return (
+                <div className="p-12 text-center bg-slate-900 border border-slate-800 rounded-2xl text-slate-400 text-sm">
+                  {dossierLoading ? 'Loading administrators work dossiers...' : 'No administrator work records found.'}
+                </div>
+              );
+            }
+
+            const isChief = currentDossier.is_chief_admin || currentDossier.email.toLowerCase() === 'utkarshkushwaha470@gmail.com';
+            const m = currentDossier.metrics || {};
+
+            return (
+              <div className="space-y-6">
+                {/* Admin Dossier Profile Card */}
+                <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="md:col-span-2 flex items-start gap-3.5">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl font-bold shadow-lg flex-shrink-0 ${
+                      isChief ? 'bg-gradient-to-tr from-amber-500 to-yellow-500 text-slate-950' : 'bg-gradient-to-tr from-blue-600 to-indigo-600 text-white'
+                    }`}>
+                      {isChief ? '👑' : '🛡️'}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-base font-extrabold text-white">{currentDossier.full_name}</h4>
+                        {isChief ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                            Chief Administrator (Permanent Director)
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-800 text-blue-300 border border-blue-500/30">
+                            Staff Administrator
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-300 font-mono mt-0.5">{currentDossier.email}</p>
+                      <div className="flex flex-wrap items-center gap-3 mt-2 text-[11px] text-slate-400">
+                        <span>Staff ID: <strong className="text-slate-200 font-mono">{currentDossier.crn_or_roll_number}</strong></span>
+                        <span>•</span>
+                        <span>Batch: <strong className="text-slate-200">{currentDossier.batch}</strong></span>
+                        <span>•</span>
+                        <span>Status: <strong className="text-emerald-400 font-semibold">{currentDossier.status}</strong></span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-xs space-y-1.5 flex flex-col justify-center">
+                    <div className="flex justify-between items-center text-slate-400">
+                      <span>Last Recorded IP:</span>
+                      <span className="font-mono text-slate-200 font-semibold">{currentDossier.last_ip_address || '127.0.0.1'}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-400">
+                      <span>Last Active:</span>
+                      <span className="text-slate-200 font-semibold">
+                        {currentDossier.last_active_at ? new Date(currentDossier.last_active_at).toLocaleString() : 'Active Recently'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-400">
+                      <span>Appointed On:</span>
+                      <span className="text-slate-200 font-semibold">
+                        {currentDossier.created_at ? new Date(currentDossier.created_at).toLocaleDateString() : 'Initial Deployment'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Performance & Work Metrics Grid */}
+                <div>
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
+                    <span>📈</span>
+                    <span>Administrative Performance & Work Output</span>
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                    <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800">
+                      <div className="text-[11px] text-slate-400 font-medium">Verifications</div>
+                      <div className="text-xl font-black text-amber-400 mt-1">{m.verifications_reviewed || 0}</div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        <span className="text-emerald-400 font-semibold">✓ {m.verifications_approved || 0}</span> | <span className="text-rose-400 font-semibold">✕ {m.verifications_rejected || 0}</span>
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800">
+                      <div className="text-[11px] text-slate-400 font-medium">Terminations</div>
+                      <div className="text-xl font-black text-rose-400 mt-1">{m.students_terminated || 0}</div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">Accounts Revoked</div>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800">
+                      <div className="text-[11px] text-slate-400 font-medium">Year Promotions</div>
+                      <div className="text-xl font-black text-blue-400 mt-1">{m.students_promoted || 0}</div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">Batches Advanced</div>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800">
+                      <div className="text-[11px] text-slate-400 font-medium">Purpose Groups</div>
+                      <div className="text-xl font-black text-purple-400 mt-1">{m.groups_created || 0}</div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">Groups Configured</div>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800">
+                      <div className="text-[11px] text-slate-400 font-medium">Alerts Issued</div>
+                      <div className="text-xl font-black text-cyan-400 mt-1">{m.alerts_published || 0}</div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">Campus Broadcasts</div>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800">
+                      <div className="text-[11px] text-slate-400 font-medium">Total Actions</div>
+                      <div className="text-xl font-black text-emerald-400 mt-1">{m.total_actions || 0}</div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">Audit Log Events</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Detailed Chronological Activity Log */}
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+                  <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+                    <div>
+                      <h4 className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-2">
+                        <span>📜</span>
+                        <span>Chronological Work Actions Log ({currentDossier.recent_activities?.length || 0} Events)</span>
+                      </h4>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Timestamped administrative operations logged for {currentDossier.full_name}
+                      </p>
+                    </div>
+                  </div>
+
+                  {(!currentDossier.recent_activities || currentDossier.recent_activities.length === 0) ? (
+                    <div className="p-8 text-center text-xs text-slate-500">
+                      No administrative operations logged yet for this administrator account.
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-950 text-slate-400 uppercase text-[10px] font-mono tracking-wider border-b border-slate-800">
+                          <tr>
+                            <th className="px-4 py-3">Timestamp</th>
+                            <th className="px-4 py-3">Action Type</th>
+                            <th className="px-4 py-3">Target Entity</th>
+                            <th className="px-4 py-3">Details / Parameters</th>
+                            <th className="px-4 py-3 text-right">Terminal IP</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800/60 font-mono text-slate-300">
+                          {currentDossier.recent_activities.map((act) => {
+                            let actionColor = 'bg-slate-800 text-slate-300 border-slate-700';
+                            if (act.action_type.includes('APPROVE')) actionColor = 'bg-emerald-950 text-emerald-300 border-emerald-700/60';
+                            else if (act.action_type.includes('REJECT') || act.action_type.includes('TERMINATE')) actionColor = 'bg-rose-950 text-rose-300 border-rose-700/60';
+                            else if (act.action_type.includes('CREATE') || act.action_type.includes('GROUP')) actionColor = 'bg-purple-950 text-purple-300 border-purple-700/60';
+                            else if (act.action_type.includes('NOTIF') || act.action_type.includes('FORWARD')) actionColor = 'bg-cyan-950 text-cyan-300 border-cyan-700/60';
+
+                            return (
+                              <tr key={act.id} className="hover:bg-slate-800/40 transition">
+                                <td className="px-4 py-3 text-[11px] text-slate-400 whitespace-nowrap">
+                                  {act.timestamp ? new Date(act.timestamp).toLocaleString() : 'N/A'}
+                                </td>
+                                <td className="px-4 py-3 whitespace-nowrap">
+                                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${actionColor}`}>
+                                    {act.action_type}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 text-slate-300 whitespace-nowrap">
+                                  <span className="text-[11px] font-semibold">{act.target_entity}</span>
+                                  {act.target_id && (
+                                    <span className="text-[10px] text-slate-500 block truncate max-w-[120px]">{act.target_id}</span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 text-slate-300 text-[11px] font-sans">
+                                  {act.details ? (
+                                    <div className="max-w-md truncate" title={JSON.stringify(act.details)}>
+                                      {typeof act.details === 'object' ? (
+                                        Object.entries(act.details).map(([k, v]) => `${k}: ${v}`).join(' | ')
+                                      ) : String(act.details)}
+                                    </div>
+                                  ) : (
+                                    <span className="text-slate-600">—</span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 text-right text-[11px] text-slate-400 font-mono whitespace-nowrap">
+                                  {act.ip_address || '127.0.0.1'}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* ================= TAB: SUB-ADMIN DIRECT CHAT WITH CHIEF ADMIN ================= */}
+      {activeTab === 'chief-chat' && !isChiefAdmin && (
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6">
+          <div className="p-4 rounded-xl bg-gradient-to-r from-pink-950/40 via-purple-950/40 to-slate-900 border border-purple-500/40">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xl">👑</span>
+              <h3 className="font-bold text-white text-base">Direct Channel to Chief Administrator (UTKARSH KUSHWAHA)</h3>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Sub-administrators can send priority dispatches, report critical disciplinary incidents, or request executive clearance approvals directly to Chief Administrator Utkarsh Kushwaha.
+            </p>
+          </div>
+
+          <form onSubmit={handleSendChiefMessage} className="space-y-4 max-w-xl">
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1.5">Dispatch Subject</label>
+              <input
+                type="text"
+                required
+                value={chiefSubject}
+                onChange={(e) => setChiefSubject(e.target.value)}
+                placeholder="e.g. Disciplinary Escalation / Request for Exam Clearance"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs outline-none focus:border-purple-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1.5">Urgent Message Content</label>
+              <textarea
+                rows={4}
+                required
+                value={chiefMessage}
+                onChange={(e) => setChiefMessage(e.target.value)}
+                placeholder="Describe the incident or matter for Chief Administrator Utkarsh Kushwaha..."
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs outline-none focus:border-purple-500"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={chiefSending}
+              className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-400 hover:to-purple-500 text-white font-bold text-xs shadow-lg shadow-purple-500/25 disabled:opacity-50"
+            >
+              {chiefSending ? 'Transmitting Dispatch...' : 'Send Dispatch to Chief Admin (Utkarsh Kushwaha)'}
+            </button>
+          </form>
+
+          {chiefSentDispatches.length > 0 && (
+            <div className="space-y-2 pt-4 border-t border-slate-800">
+              <h4 className="text-xs font-bold text-slate-300">Sent Dispatches to Chief Admin</h4>
+              {chiefSentDispatches.map((d) => (
+                <div key={d.id} className="p-3 rounded-xl bg-slate-950 border border-slate-800/80 text-xs space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-purple-300">{d.subject}</span>
+                    <span className="text-[10px] text-slate-500">{d.time}</span>
+                  </div>
+                  <p className="text-slate-400">{d.message}</p>
+                  <div className="text-[10px] text-emerald-400 font-semibold">✓ Delivered to Utkarsh Kushwaha inbox</div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -1064,6 +1692,24 @@ export default function AdminVerificationPage({ user }) {
         </div>
       )}
 
+      {/* ================= TAB 7: ADMIN SETTINGS & PROOF ================= */}
+      {activeTab === 'settings' && (
+        <div className="space-y-4">
+          <div className="p-4 rounded-2xl bg-amber-950/40 border border-amber-500/50 flex items-center justify-between">
+            <div>
+              <h3 className="font-bold text-amber-300 text-sm flex items-center gap-2">
+                <span>⚙️</span>
+                <span>Administrator Settings & Security Proof Management</span>
+              </h3>
+              <p className="text-xs text-slate-300 mt-0.5">
+                Update account profile, institutional password, or change the admin security proof passphrase.
+              </p>
+            </div>
+          </div>
+          <SettingsPage user={user} onUserUpdated={onUserUpdated} />
+        </div>
+      )}
+
       {/* ================= MODAL: TERMINATE STUDENT CONFIRMATION ================= */}
       {selectedStudentForTerm && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
@@ -1210,6 +1856,108 @@ export default function AdminVerificationPage({ user }) {
                   className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-lg shadow-amber-500/20"
                 >
                   Create & Launch Group
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: APPOINT NEW ADMINISTRATOR (CHIEF ADMIN EXCLUSIVE) ================= */}
+      {showAdminModal && isChiefAdmin && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-amber-500/50 rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">👑</span>
+                <h4 className="font-bold text-white text-sm">Appoint New College Administrator</h4>
+              </div>
+              <button
+                onClick={() => setShowAdminModal(false)}
+                className="text-slate-400 hover:text-white font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-400 leading-relaxed">
+              As Chief Administrator, granting administrative clearance gives this user full authority over students, groups, and verifications.
+            </p>
+
+            <form onSubmit={handleCreateAdmin} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Full Legal Name <span className="text-amber-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newAdminName}
+                  onChange={(e) => setNewAdminName(e.target.value)}
+                  placeholder="e.g. Prof. Rajesh Verma"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Institutional Email Address <span className="text-amber-400">*</span>
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={newAdminEmail}
+                  onChange={(e) => setNewAdminEmail(e.target.value)}
+                  placeholder="e.g. staff.admin@apex.edu"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Initial Password <span className="text-amber-400">*</span>
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={newAdminPassword}
+                  onChange={(e) => setNewAdminPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs outline-none focus:border-amber-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Assigned Security Proof Passphrase <span className="text-amber-400">*</span>
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={newAdminProof}
+                  onChange={(e) => setNewAdminProof(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs outline-none focus:border-amber-500 font-mono"
+                />
+                <p className="text-[10px] text-slate-500 mt-0.5">
+                  The sub-admin must supply this secret proof passphrase whenever authenticating.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowAdminModal(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={adminActionLoading}
+                  className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-lg shadow-amber-500/20 disabled:opacity-50"
+                >
+                  {adminActionLoading ? 'Appointing...' : 'Appoint Administrator'}
                 </button>
               </div>
             </form>

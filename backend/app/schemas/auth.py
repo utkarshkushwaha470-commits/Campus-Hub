@@ -59,6 +59,7 @@ class UserResponse(BaseModel):
     points: int
     level: int
     badges: str
+    is_chief_admin: Optional[bool] = False
     created_at: datetime
 
 class TokenResponse(BaseModel):
@@ -94,3 +95,13 @@ class StudentTerminationRequest(BaseModel):
 
 class StudentReinstateRequest(BaseModel):
     reason: Optional[str] = "Administrative reinstatement"
+
+class CreateAdminRequest(BaseModel):
+    full_name: str
+    email: str
+    password: str
+    admin_proof: str
+
+class DirectChiefChatMessage(BaseModel):
+    subject: str
+    message: str

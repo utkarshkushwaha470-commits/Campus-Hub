@@ -50,7 +50,7 @@ def test_pg_and_faculty_can_access_premium_section(client, db_session):
 
     resp = client.get("/api/dashboard/premium-section", headers=headers)
     assert resp.status_code == 200
-    assert "Welcome to the CampusConnect Premium Section" in resp.json()["message"]
+    assert "Welcome to the Brogrammers Premium Section" in resp.json()["message"]
 
 def test_only_admin_can_access_admin_queue(client, db_session):
     """Only Admin role can access admin verification endpoints."""

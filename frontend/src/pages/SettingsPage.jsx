@@ -292,11 +292,11 @@ export default function SettingsPage({ user, onUserUpdated }) {
                 Current Security Proof Passphrase <span className="text-rose-400">*</span>
               </label>
               <input
-                type="text"
+                type="password"
                 required
                 value={currentProof}
                 onChange={(e) => setCurrentProof(e.target.value)}
-                placeholder="e.g. ujjawal utkarsh 222005"
+                placeholder="••••••••"
                 className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs font-mono outline-none focus:border-amber-500"
               />
             </div>
@@ -307,11 +307,11 @@ export default function SettingsPage({ user, onUserUpdated }) {
                   New Security Proof Passphrase <span className="text-rose-400">*</span>
                 </label>
                 <input
-                  type="text"
+                  type="password"
                   required
                   value={newProof}
                   onChange={(e) => setNewProof(e.target.value)}
-                  placeholder="Enter new proof passphrase..."
+                  placeholder="••••••••"
                   className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs font-mono outline-none focus:border-amber-500"
                 />
               </div>
@@ -321,11 +321,11 @@ export default function SettingsPage({ user, onUserUpdated }) {
                   Confirm New Proof Passphrase <span className="text-rose-400">*</span>
                 </label>
                 <input
-                  type="text"
+                  type="password"
                   required
                   value={confirmProof}
                   onChange={(e) => setConfirmProof(e.target.value)}
-                  placeholder="Re-type new proof passphrase..."
+                  placeholder="••••••••"
                   className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs font-mono outline-none focus:border-amber-500"
                 />
               </div>

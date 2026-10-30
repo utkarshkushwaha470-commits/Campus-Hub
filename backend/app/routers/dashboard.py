@@ -142,7 +142,7 @@ async def access_premium_section(
     ).order_by(Query.created_at.desc()).all()
 
     return {
-        "message": "Welcome to the CampusConnect Premium Section for PG & Faculty discussions.",
+        "message": "Welcome to the Brogrammers Premium Section for PG & Faculty discussions.",
         "authorized_role": current_user.role,
         "discussions_count": len(queries)
     }

@@ -143,7 +143,7 @@ export default function App() {
           <LeaderboardPage user={user} />
         )}
         {activePage === 'admin-portal' && user.role === 'ADMIN' && (
-          <AdminVerificationPage user={user} />
+          <AdminVerificationPage user={user} onUserUpdated={(updated) => setUser(updated)} />
         )}
         {activePage === 'settings' && (
           <SettingsPage user={user} onUserUpdated={(updated) => setUser(updated)} />

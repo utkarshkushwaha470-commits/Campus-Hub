@@ -1,6 +1,6 @@
 {
-  "name": "CampusConnect - Academic Guidance PWA",
-  "short_name": "CampusConnect",
+  "name": "Brogrammers - Academic Guidance PWA",
+  "short_name": "Brogrammers",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#090d16",

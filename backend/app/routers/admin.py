@@ -1,4 +1,5 @@
 from typing import List, Optional
+import uuid
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from sqlalchemy.orm import Session
@@ -6,11 +7,13 @@ from app.database import get_db
 from app.models.user import User, AccountStatus, UserRole
 from app.models.id_verification import IDVerification, IDVerificationStatus
 from app.models.admin_audit_log import AdminAuditLog, AuditActionType
+from app.models.group import CampusGroup
+from app.models.notification import Notification
 from app.schemas.auth import (
     IDVerificationResponse, IDVerificationReview, YearlyPromotionRequest, UserResponse,
-    StudentTerminationRequest, StudentReinstateRequest
+    StudentTerminationRequest, StudentReinstateRequest, CreateAdminRequest, DirectChiefChatMessage
 )
-from app.services.auth_service import require_roles, get_current_user
+from app.services.auth_service import require_roles, get_current_user, get_password_hash
 from app.services.storage_service import storage_service
 from app.services.audit_service import audit_service
 
@@ -361,4 +364,291 @@ async def reinstate_student(
     return {
         "message": f"Student {student.full_name} has been REINSTATED to APPROVED status.",
         "status": student.status
+    }
+
+# ================= CHIEF ADMINISTRATOR MANAGEMENT ENDPOINTS =================
+
+@router.get("/admins-list")
+async def list_all_admins(
+    current_admin: User = Depends(admin_only),
+    db: Session = Depends(get_db)
+):
+    """
+    Returns list of all administrators.
+    Chief Admin is highlighted as the supreme authority (Utkarsh Kushwaha).
+    """
+    admins = db.query(User).filter(User.role == UserRole.ADMIN).order_by(User.created_at.asc()).all()
+    
+    results = []
+    for a in admins:
+        is_chief = a.email.lower() == "utkarshkushwaha470@gmail.com" or getattr(a, "is_chief_admin", False)
+        results.append({
+            "id": a.id,
+            "full_name": a.full_name,
+            "email": a.email,
+            "batch": a.batch,
+            "status": a.status,
+            "crn_or_roll_number": a.crn_or_roll_number,
+            "is_chief_admin": is_chief,
+            "created_at": a.created_at
+        })
+    return results
+
+@router.get("/admins-work-dossier")
+async def get_admins_work_dossier(
+    admin_id: Optional[str] = None,
+    current_admin: User = Depends(admin_only),
+    db: Session = Depends(get_db)
+):
+    """
+    Chief Administrator Exclusive: Access complete work performance, activities,
+    and administrative execution details of all college administrators.
+    """
+    is_chief = current_admin.email.lower() == "utkarshkushwaha470@gmail.com" or getattr(current_admin, "is_chief_admin", False)
+    if not is_chief:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access Denied: Only Chief Administrator UTKARSH KUSHWAHA has authority to inspect all administrators' work dossiers."
+        )
+
+    # Fetch admins
+    admins_query = db.query(User).filter(User.role == UserRole.ADMIN)
+    if admin_id:
+        admins_query = admins_query.filter(User.id == admin_id)
+    admins = admins_query.order_by(User.created_at.asc()).all()
+
+    work_dossiers = []
+    for a in admins:
+        is_chief_user = a.email.lower() == "utkarshkushwaha470@gmail.com" or getattr(a, "is_chief_admin", False)
+
+        # 1. Audit logs for this admin
+        logs = db.query(AdminAuditLog).filter(AdminAuditLog.admin_user_id == a.id).order_by(AdminAuditLog.created_at.desc()).all()
+
+        # 2. Work metrics calculation
+        verifs_approved = sum(1 for log in logs if log.action_type == AuditActionType.APPROVE_ID)
+        verifs_rejected = sum(1 for log in logs if log.action_type == AuditActionType.REJECT_ID)
+        students_terminated = sum(1 for log in logs if log.action_type == AuditActionType.TERMINATE_STUDENT)
+        students_promoted = sum(1 for log in logs if log.action_type == AuditActionType.PROMOTE_YEAR)
+        groups_created = sum(1 for log in logs if log.action_type == AuditActionType.CREATE_GROUP)
+        alerts_published = sum(1 for log in logs if log.action_type == AuditActionType.PUBLISH_NOTIFICATION)
+        problem_box_handled = sum(1 for log in logs if log.action_type in [
+            AuditActionType.FORWARD_PROBLEM_BOX,
+            AuditActionType.REPLY_PROBLEM_BOX,
+            AuditActionType.VIEW_PROBLEM_BOX
+        ])
+
+        # Cross-reference direct tables
+        direct_verifs = db.query(IDVerification).filter(IDVerification.reviewed_by_admin_id == a.id).all()
+        if len(direct_verifs) > (verifs_approved + verifs_rejected):
+            verifs_approved = sum(1 for v in direct_verifs if v.status == "APPROVED")
+            verifs_rejected = sum(1 for v in direct_verifs if v.status == "REJECTED")
+
+        direct_groups = db.query(CampusGroup).filter(CampusGroup.created_by_admin_id == a.id).count()
+        if direct_groups > groups_created:
+            groups_created = direct_groups
+
+        direct_notifications = db.query(Notification).filter(Notification.sender_id == a.id).count()
+        if direct_notifications > alerts_published:
+            alerts_published = direct_notifications
+
+        last_log = logs[0] if logs else None
+        last_active = last_log.created_at if last_log else a.updated_at
+        last_ip = last_log.ip_address if last_log else "127.0.0.1"
+
+        # Recent activities (up to 50 actions)
+        recent_activities = []
+        for log in logs[:50]:
+            recent_activities.append({
+                "id": log.id,
+                "action_type": log.action_type,
+                "target_entity": log.target_entity,
+                "target_id": log.target_id,
+                "ip_address": log.ip_address,
+                "details": log.details_json,
+                "timestamp": log.created_at
+            })
+
+        work_dossiers.append({
+            "admin_id": a.id,
+            "full_name": a.full_name,
+            "email": a.email,
+            "batch": a.batch,
+            "status": a.status,
+            "crn_or_roll_number": a.crn_or_roll_number,
+            "is_chief_admin": is_chief_user,
+            "created_at": a.created_at,
+            "last_active_at": last_active,
+            "last_ip_address": last_ip,
+            "metrics": {
+                "total_actions": len(logs),
+                "verifications_reviewed": verifs_approved + verifs_rejected,
+                "verifications_approved": verifs_approved,
+                "verifications_rejected": verifs_rejected,
+                "students_terminated": students_terminated,
+                "students_promoted": students_promoted,
+                "groups_created": groups_created,
+                "alerts_published": alerts_published,
+                "problem_box_handled": problem_box_handled
+            },
+            "recent_activities": recent_activities
+        })
+
+    return work_dossiers
+
+@router.post("/create-admin")
+async def create_new_admin(
+    req: CreateAdminRequest,
+    request: Request,
+    current_admin: User = Depends(admin_only),
+    db: Session = Depends(get_db)
+):
+    """
+    Chief Administrator Exclusive: Appoint a new institutional Administrator.
+    Only Utkarsh Kushwaha possesses this executive authority.
+    """
+    is_chief = current_admin.email.lower() == "utkarshkushwaha470@gmail.com" or getattr(current_admin, "is_chief_admin", False)
+    if not is_chief:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access Denied: Only Chief Administrator UTKARSH KUSHWAHA has the authority to appoint new administrators."
+        )
+
+    # Check email duplicate
+    existing = db.query(User).filter(User.email == req.email.lower().strip()).first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"An account with email {req.email} already exists."
+        )
+
+    new_admin = User(
+        id=str(uuid.uuid4()),
+        email=req.email.lower().strip(),
+        full_name=req.full_name.strip(),
+        password_hash=get_password_hash(req.password),
+        role=UserRole.ADMIN,
+        status=AccountStatus.APPROVED,
+        locked_year=None,
+        batch="STAFF-ADMIN",
+        crn_or_roll_number=f"ADM-{uuid.uuid4().hex[:6].upper()}",
+        is_2fa_enabled=False,
+        admin_proof=req.admin_proof.strip() if req.admin_proof.strip() else "staffadmin2026",
+        is_chief_admin=False
+    )
+    db.add(new_admin)
+    db.commit()
+    db.refresh(new_admin)
+
+    client_ip = request.client.host if request.client else "127.0.0.1"
+    audit_service.log_action(
+        db=db,
+        admin_id=current_admin.id,
+        action_type=AuditActionType.CREATE_MODULE,  # Executive admin creation
+        target_entity="ADMIN_USER",
+        target_id=new_admin.id,
+        ip_address=client_ip,
+        details={
+            "chief_admin": current_admin.full_name,
+            "new_admin_name": new_admin.full_name,
+            "new_admin_email": new_admin.email
+        }
+    )
+
+    return {
+        "message": f"Successfully appointed new Administrator: {new_admin.full_name} ({new_admin.email}).",
+        "admin": {
+            "id": new_admin.id,
+            "full_name": new_admin.full_name,
+            "email": new_admin.email,
+            "role": new_admin.role,
+            "is_chief_admin": False
+        }
+    }
+
+@router.delete("/delete-admin/{admin_id}")
+async def delete_or_terminate_admin(
+    admin_id: str,
+    request: Request,
+    current_admin: User = Depends(admin_only),
+    db: Session = Depends(get_db)
+):
+    """
+    Chief Administrator Exclusive: Revoke or delete a sub-administrator's credentials.
+    Utkarsh Kushwaha cannot be deleted.
+    """
+    is_chief = current_admin.email.lower() == "utkarshkushwaha470@gmail.com" or getattr(current_admin, "is_chief_admin", False)
+    if not is_chief:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access Denied: Only Chief Administrator UTKARSH KUSHWAHA can terminate or delete administrators."
+        )
+
+    target_admin = db.query(User).filter(User.id == admin_id).first()
+    if not target_admin:
+        raise HTTPException(status_code=404, detail="Administrator account not found.")
+
+    if target_admin.email.lower() == "utkarshkushwaha470@gmail.com" or getattr(target_admin, "is_chief_admin", False):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Chief Administrator UTKARSH KUSHWAHA is the permanent platform director and cannot be deleted or revoked."
+        )
+
+    target_admin.status = AccountStatus.TERMINATED
+    target_admin.role = UserRole.STUDENT  # Revoke administrative role
+    db.commit()
+
+    client_ip = request.client.host if request.client else "127.0.0.1"
+    audit_service.log_action(
+        db=db,
+        admin_id=current_admin.id,
+        action_type=AuditActionType.TERMINATE_STUDENT,
+        target_entity="ADMIN_REVOCATION",
+        target_id=target_admin.id,
+        ip_address=client_ip,
+        details={
+            "chief_admin": current_admin.full_name,
+            "revoked_admin_name": target_admin.full_name,
+            "revoked_admin_email": target_admin.email
+        }
+    )
+
+    return {
+        "message": f"Administrator credentials for {target_admin.full_name} have been REVOKED.",
+        "revoked_id": target_admin.id
+    }
+
+@router.post("/chief-message")
+async def send_direct_message_to_chief(
+    req: DirectChiefChatMessage,
+    request: Request,
+    current_admin: User = Depends(admin_only),
+    db: Session = Depends(get_db)
+):
+    """
+    Direct communication channel for sub-administrators to consult or report directly
+    to Chief Administrator Utkarsh Kushwaha.
+    """
+    chief = db.query(User).filter(
+        (User.email == "utkarshkushwaha470@gmail.com") | (User.is_chief_admin == True)
+    ).first()
+
+    client_ip = request.client.host if request.client else "127.0.0.1"
+    audit_service.log_action(
+        db=db,
+        admin_id=current_admin.id,
+        action_type=AuditActionType.PROBLEM_FORWARD,
+        target_entity="CHIEF_ADMIN_DISPATCH",
+        target_id=chief.id if chief else "CHIEF",
+        ip_address=client_ip,
+        details={
+            "from_admin": current_admin.full_name,
+            "from_email": current_admin.email,
+            "subject": req.subject,
+            "message": req.message
+        }
+    )
+
+    return {
+        "message": f"Urgent administrative dispatch received by Chief Administrator UTKARSH KUSHWAHA.",
+        "timestamp": datetime.utcnow()
     }

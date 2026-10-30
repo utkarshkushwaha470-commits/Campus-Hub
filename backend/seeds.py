@@ -14,9 +14,9 @@ def run_seed():
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
 
-    print("--- Seeding CampusConnect College Database ---")
+    print("--- Seeding Brogrammers College Database ---")
 
-    # 0. Primary Administrator: Utkarsh Kushwaha
+    # 0. Chief Administrator: Utkarsh Kushwaha (Permanent Highest Authority)
     utkarsh_admin = db.query(User).filter(User.email == "utkarshkushwaha470@gmail.com").first()
     if not utkarsh_admin:
         utkarsh_admin = User(
@@ -27,11 +27,12 @@ def run_seed():
             role=UserRole.ADMIN,
             status=AccountStatus.APPROVED,
             locked_year=None,
-            batch="ADMIN-HEAD",
+            batch="CHIEF-ADMIN",
             crn_or_roll_number="2720A",
             is_2fa_enabled=False,
             two_factor_secret="888888",
-            admin_proof="ujjawal utkarsh 222005"
+            admin_proof="ujjawal utkarsh 222005",
+            is_chief_admin=True
         )
         db.add(utkarsh_admin)
         print("Created Chief Admin: UTKARSH KUSHWAHA (utkarshkushwaha470@gmail.com / utkarsh2720A)")
@@ -41,13 +42,42 @@ def run_seed():
         utkarsh_admin.role = UserRole.ADMIN
         utkarsh_admin.status = AccountStatus.APPROVED
         utkarsh_admin.crn_or_roll_number = "2720A"
-        utkarsh_admin.batch = "ADMIN-HEAD"
+        utkarsh_admin.batch = "CHIEF-ADMIN"
         utkarsh_admin.is_2fa_enabled = False
         utkarsh_admin.admin_proof = "ujjawal utkarsh 222005"
+        utkarsh_admin.is_chief_admin = True
         db.commit()
         print("Updated Chief Admin: UTKARSH KUSHWAHA (utkarshkushwaha470@gmail.com / utkarsh2720A)")
 
-    # 1. Super Admin (Seeded only, strong password + 2FA)
+    # 1. Staff Sub-Administrator (Demo Sub-Admin)
+    staff_admin = db.query(User).filter(User.email == "staff.admin@apex.edu").first()
+    if not staff_admin:
+        staff_admin = User(
+            id=str(uuid.uuid4()),
+            email="staff.admin@apex.edu",
+            full_name="Prof. Rajesh Verma (Staff Admin)",
+            password_hash=get_password_hash("Admin@123"),
+            role=UserRole.ADMIN,
+            status=AccountStatus.APPROVED,
+            locked_year=None,
+            batch="STAFF-ADMIN",
+            crn_or_roll_number="ADM-STAFF-01",
+            is_2fa_enabled=False,
+            admin_proof="staffadmin2026",
+            is_chief_admin=False
+        )
+        db.add(staff_admin)
+        print("Created Demo Sub-Admin: staff.admin@apex.edu / Admin@123 (Proof: staffadmin2026)")
+    else:
+        staff_admin.full_name = "Prof. Rajesh Verma (Staff Admin)"
+        staff_admin.password_hash = get_password_hash("Admin@123")
+        staff_admin.admin_proof = "staffadmin2026"
+        staff_admin.role = UserRole.ADMIN
+        staff_admin.status = AccountStatus.APPROVED
+        staff_admin.is_chief_admin = False
+        db.commit()
+
+    # 1b. Legacy Admin
     admin = db.query(User).filter(User.email == "admin@apex.edu").first()
     if not admin:
         admin = User(
@@ -60,11 +90,12 @@ def run_seed():
             locked_year=None,
             batch="STAFF",
             crn_or_roll_number="ADM-001",
-            is_2fa_enabled=True,
-            two_factor_secret="888888"
+            is_2fa_enabled=False,
+            admin_proof="admin123",
+            is_chief_admin=False
         )
         db.add(admin)
-        print("Created Super-Admin: admin@apex.edu / Admin@123 (2FA: 888888)")
+        print("Created Super-Admin: admin@apex.edu / Admin@123")
 
     # 2. Faculty
     faculty = db.query(User).filter(User.email == "dr.sharma@apex.edu").first()

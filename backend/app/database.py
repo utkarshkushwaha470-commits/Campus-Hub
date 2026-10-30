@@ -12,11 +12,19 @@ engine = create_engine(
     echo=False
 )
 
-# Auto-migration for admin_proof column
+# Auto-migration for admin_proof and is_chief_admin columns
 try:
     with engine.connect() as conn:
-        conn.execute(text("ALTER TABLE users ADD COLUMN admin_proof VARCHAR(255) DEFAULT 'ujjawal utkarsh 222005'"))
-        conn.commit()
+        try:
+            conn.execute(text("ALTER TABLE users ADD COLUMN admin_proof VARCHAR(255) DEFAULT 'ujjawal utkarsh 222005'"))
+            conn.commit()
+        except Exception:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE users ADD COLUMN is_chief_admin BOOLEAN DEFAULT 0"))
+            conn.commit()
+        except Exception:
+            pass
 except Exception:
     pass
 

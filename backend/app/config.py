@@ -1,16 +1,19 @@
 import os
 from pydantic_settings import BaseSettings
 
+_backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+_default_db = os.path.join(_backend_dir, "campusconnect.db").replace("\\", "/")
+
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Brogrammers"
     COLLEGE_NAME: str = "Apex Institute of Technology"
     COLLEGE_DOMAIN: str = "apex.edu"
     
-    # Database
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./campusconnect.db")
+    # Database (always points to persistent database in backend directory)
+    DATABASE_URL: str = os.getenv("DATABASE_URL", f"sqlite:///{_default_db}")
     
     # JWT & Auth
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "campusconnect-ultra-secure-jwt-secret-key-32chars-minimum-!")
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "brogrammers-ultra-secure-jwt-secret-key-32chars-minimum-!")
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours
     
@@ -23,7 +26,7 @@ class Settings(BaseSettings):
     # File Storage (S3 compatible or encrypted local fallback)
     STORAGE_MODE: str = os.getenv("STORAGE_MODE", "local")  # "local" | "s3"
     S3_ENDPOINT_URL: str = os.getenv("S3_ENDPOINT_URL", "")
-    S3_BUCKET_NAME: str = os.getenv("S3_BUCKET_NAME", "campusconnect-private")
+    S3_BUCKET_NAME: str = os.getenv("S3_BUCKET_NAME", "brogrammers-private")
     S3_ACCESS_KEY: str = os.getenv("S3_ACCESS_KEY", "")
     S3_SECRET_KEY: str = os.getenv("S3_SECRET_KEY", "")
     S3_REGION: str = os.getenv("S3_REGION", "us-east-1")

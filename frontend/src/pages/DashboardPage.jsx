@@ -31,6 +31,33 @@ export default function DashboardPage({ user, onNavigate }) {
       {/* Profile Card */}
       <ProfileCard user={user} />
 
+      {/* Admin Quick Access Command Banner */}
+      {user.role === 'ADMIN' && (
+        <div className="rounded-2xl bg-gradient-to-r from-amber-950/70 via-slate-900 to-amber-950/50 border border-amber-500/50 p-6 shadow-xl shadow-amber-500/10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500 text-slate-950">
+                Institutional Control
+              </span>
+              <span className="text-xs text-amber-300 font-bold">• Chief Administrator</span>
+            </div>
+            <h3 className="text-xl font-black text-white flex items-center gap-2">
+              <span>🛡️ Administrator Command Center</span>
+            </h3>
+            <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
+              Full administrative authority active for <strong>{user.full_name}</strong>. Manage and terminate student accounts, create special-purpose student groups, approve ID verifications, and monitor security problem box reports.
+            </p>
+          </div>
+          <button
+            onClick={() => onNavigate('admin-portal')}
+            className="px-5 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-sm shadow-lg shadow-amber-500/25 transition-all flex items-center gap-2 flex-shrink-0"
+          >
+            <span>🛡️ Enter Admin Portal</span>
+            <span>➔</span>
+          </button>
+        </div>
+      )}
+
       {/* Campus Spaces & Core Hubs */}
       <div>
         <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">

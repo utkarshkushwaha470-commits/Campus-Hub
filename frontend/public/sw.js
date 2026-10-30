@@ -1,4 +1,4 @@
-const CACHE_NAME = 'campusconnect-v2';
+const CACHE_NAME = 'brogrammers-v5';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -15,7 +15,7 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Always fetch fresh from network for API and scripts
+  // Always fetch fresh from network
   event.respondWith(
     fetch(event.request).catch(() => caches.match(event.request))
   );

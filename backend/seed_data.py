@@ -12,7 +12,7 @@ from app.services.auth_service import get_password_hash
 from app.services.storage_service import save_encrypted_id_photo
 
 async def seed():
-    print("[*] Initializing CampusConnect Database and Seeding Initial Data...")
+    print("[*] Initializing Brogrammers Database and Seeding Initial Data...")
     
     # Create tables
     async with engine.begin() as conn:

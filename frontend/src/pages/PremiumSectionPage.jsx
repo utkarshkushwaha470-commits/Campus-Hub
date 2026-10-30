@@ -32,7 +32,7 @@ export default function PremiumSectionPage({ user }) {
           </span>
           <span className="text-xs text-purple-400 font-semibold">• PG & Faculty Access Only</span>
         </div>
-        <h2 className="text-xl font-bold text-white">CampusConnect Premium Section</h2>
+        <h2 className="text-xl font-bold text-white">Brogrammers Premium Section</h2>
         <p className="text-xs text-slate-400 mt-1 max-w-2xl leading-relaxed">
           Postgraduate students (M.Tech, MS, PhD) and verified college faculty engage in high-level research discussions, thesis formulation, and academic mentorship.
         </p>

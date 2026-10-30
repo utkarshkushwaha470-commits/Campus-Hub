@@ -100,13 +100,14 @@ export default function Navbar({ user, activePage, setActivePage, onLogout }) {
             {isAdmin && (
               <button
                 onClick={() => setActivePage('admin-portal')}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${
                   activePage === 'admin-portal'
-                    ? 'bg-amber-600 text-white shadow-sm'
-                    : 'text-amber-400 hover:text-amber-200 hover:bg-amber-950/40 border border-amber-800/40'
+                    ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+                    : 'text-amber-400 hover:text-amber-200 hover:bg-amber-950/40 border border-amber-600/50'
                 }`}
               >
-                Admin Queue
+                <span>🛡️</span>
+                <span>Admin Portal</span>
               </button>
             )}
 

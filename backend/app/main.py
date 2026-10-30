@@ -98,21 +98,23 @@ if os.path.exists(frontend_dist):
         if full_path.startswith(("api", "ws", "docs", "openapi.json", "storage")):
             return None
         file_path = os.path.join(frontend_dist, full_path)
+        no_cache_headers = {
+            "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
         if os.path.exists(file_path) and os.path.isfile(file_path):
-            headers = {}
-            if full_path.endswith((".html", ".js", "sw.js")):
-                headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-            return FileResponse(file_path, headers=headers)
+            return FileResponse(file_path, headers=no_cache_headers)
         return FileResponse(
             os.path.join(frontend_dist, "index.html"),
-            headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+            headers=no_cache_headers
         )
 
 if __name__ == "__main__":
     import uvicorn
     import webbrowser
     print("==================================================")
-    print("  Starting CampusConnect Server at http://localhost:8000")
+    print("  Starting Brogrammers Server at http://localhost:8000")
     print("==================================================")
     webbrowser.open("http://localhost:8000")
     uvicorn.run("app.main:app", host="127.0.0.1", port=8000, reload=True)
