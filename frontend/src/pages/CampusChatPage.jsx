@@ -367,23 +367,38 @@ export default function CampusChatPage({ user }) {
                   <div
                     key={item.thread_id}
                     onClick={() => setActiveThreadId(item.thread_id)}
-                    className={`p-3.5 cursor-pointer transition-all flex items-center gap-3 ${
+                    className={`p-3.5 cursor-pointer transition-all flex items-center gap-3 border-b border-slate-800/40 ${
                       activeThreadId === item.thread_id
-                        ? 'bg-blue-950/40 border-l-4 border-blue-500'
+                        ? 'bg-indigo-950/50 border-l-4 border-indigo-500'
+                        : item.unread_count > 0
+                        ? 'bg-emerald-950/20 hover:bg-slate-800/60'
                         : 'hover:bg-slate-900/60'
                     }`}
                   >
-                    {/* Peer Avatar with Gradient */}
+                    {/* Peer Avatar with Gradient & WhatsApp/Telegram style Unread Indicator */}
                     <div className="relative flex-shrink-0">
-                      <div className="w-11 h-11 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-black text-sm shadow-md">
+                      <div className={`w-11 h-11 rounded-full flex items-center justify-center text-white font-black text-sm shadow-md transition-all ${
+                        item.unread_count > 0
+                          ? 'bg-gradient-to-tr from-emerald-500 to-teal-500 ring-2 ring-emerald-400/80 shadow-emerald-500/20'
+                          : 'bg-gradient-to-tr from-blue-600 to-indigo-600'
+                      }`}>
                         {item.peer.avatar_char}
                       </div>
-                      <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-slate-950" />
+                      {item.unread_count > 0 ? (
+                        <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 shadow-sm shadow-emerald-500"></span>
+                        </span>
+                      ) : (
+                        <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-slate-950" />
+                      )}
                     </div>
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-0.5">
-                        <span className="font-bold text-xs text-white truncate flex items-center gap-1.5">
+                        <span className={`text-xs truncate flex items-center gap-1.5 ${
+                          item.unread_count > 0 ? 'font-black text-white' : 'font-bold text-slate-200'
+                        }`}>
                           {item.peer.full_name}
                           {item.peer.locked_year && (
                             <span className="text-[10px] text-blue-300 font-medium bg-blue-950 px-1 rounded">
@@ -392,12 +407,16 @@ export default function CampusChatPage({ user }) {
                           )}
                         </span>
                         {item.unread_count > 0 && (
-                          <span className="w-4 h-4 rounded-full bg-blue-600 text-white text-[10px] font-black flex items-center justify-center">
-                            {item.unread_count}
-                          </span>
+                          <div className="flex items-center gap-1">
+                            <span className="px-1.5 py-0.2 rounded-full bg-emerald-500 text-slate-950 text-[10px] font-black min-w-[18px] text-center shadow-md shadow-emerald-500/30">
+                              {item.unread_count}
+                            </span>
+                          </div>
                         )}
                       </div>
-                      <p className="text-[11px] text-slate-400 truncate">
+                      <p className={`text-[11px] truncate ${
+                        item.unread_count > 0 ? 'text-emerald-300 font-bold' : 'text-slate-400'
+                      }`}>
                         {item.last_message_has_attachment ? '📷 Photo' : item.last_message}
                       </p>
                     </div>
