@@ -15,6 +15,14 @@ from app.services.websocket_manager import ws_manager
 
 router = APIRouter(prefix="/api/queries", tags=["Doubts & Query Resolution"])
 
+def check_demo_protection(user: User):
+    if getattr(user, 'is_demo', False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail='Prototype Demo Account: This is an interactive read-only demonstration account for project review. Modifying live institutional records is disabled.'
+        )
+
+
 @router.post("/ocr-pre-check", response_model=OCRPreCheckResponse)
 async def ocr_and_tag_assist(
     text: str = Form(""),
@@ -54,6 +62,7 @@ async def post_query(
     - If ONE_TO_ONE: automatically instantiates a 1-to-1 chat thread between student and senior.
     - If is_premium: requires PG, Faculty, or Admin role.
     """
+    check_demo_protection(current_user)
     # Premium check
     if is_premium and current_user.role not in [UserRole.PG, UserRole.FACULTY, UserRole.ADMIN]:
         raise HTTPException(
@@ -255,6 +264,7 @@ async def post_answer(
     Seniors help via public answer.
     A senior is a user in a higher year than poster, or PG/Faculty/Admin.
     """
+    check_demo_protection(current_user)
     query_obj = db.query(Query).filter(Query.id == query_id).first()
     if not query_obj:
         raise HTTPException(status_code=404, detail="Query not found.")

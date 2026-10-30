@@ -23,6 +23,14 @@ router = APIRouter(prefix="/api/admin", tags=["Admin Portal & ID Verification"])
 # Restrict all routes in this router to ADMIN
 admin_only = require_roles([UserRole.ADMIN])
 
+def check_demo_protection(user: User):
+    if getattr(user, 'is_demo', False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail='Prototype Demo Account: This is an interactive read-only demonstration account for project review. Modifying live institutional records is disabled.'
+        )
+
+
 @router.get("/verifications")
 async def list_pending_verifications(
     status_filter: Optional[str] = "PENDING",
@@ -97,6 +105,7 @@ async def review_verification(
     - AI hint is visible to admin, but ADMIN DECISION IS FINAL.
     - Full action logged in audit log.
     """
+    check_demo_protection(current_admin)
     verif = db.query(IDVerification).filter(IDVerification.id == verif_id).first()
     if not verif:
         raise HTTPException(status_code=404, detail="ID verification record not found.")
@@ -207,6 +216,7 @@ async def promote_student_year(
     The student CANNOT change their locked year.
     Only the Admin can execute a promotion update.
     """
+    check_demo_protection(current_admin)
     student = db.query(User).filter(User.id == user_id).first()
     if not student:
         raise HTTPException(status_code=404, detail="Student not found.")
@@ -307,6 +317,7 @@ async def terminate_student(
     Admin action to TERMINATE a student's account.
     Immediately revokes access across the platform and logs an audit record.
     """
+    check_demo_protection(current_admin)
     student = db.query(User).filter(User.id == user_id).first()
     if not student:
         raise HTTPException(status_code=404, detail="Student account not found.")
@@ -353,6 +364,7 @@ async def reinstate_student(
     Admin action to reinstate a previously terminated or suspended student.
     Restores account status to APPROVED.
     """
+    check_demo_protection(current_admin)
     student = db.query(User).filter(User.id == user_id).first()
     if not student:
         raise HTTPException(status_code=404, detail="Student account not found.")
@@ -631,6 +643,7 @@ async def delete_or_terminate_admin(
     Chief Administrator Exclusive: Revoke or delete a sub-administrator's credentials.
     Utkarsh Kushwaha cannot be deleted.
     """
+    check_demo_protection(current_admin)
     is_chief = current_admin.email.lower() == "utkarshkushwaha470@gmail.com" or getattr(current_admin, "is_chief_admin", False)
     if not is_chief:
         raise HTTPException(
@@ -683,6 +696,7 @@ async def approve_admin_request(
     Chief Administrator Exclusive: Approve a pending administrator clearance request.
     Only Utkarsh Kushwaha has this authority.
     """
+    check_demo_protection(current_admin)
     is_chief = current_admin.email.lower() == "utkarshkushwaha470@gmail.com" or getattr(current_admin, "is_chief_admin", False)
     if not is_chief:
         raise HTTPException(
@@ -728,6 +742,7 @@ async def reject_admin_request(
     """
     Chief Administrator Exclusive: Reject a pending administrator clearance request.
     """
+    check_demo_protection(current_admin)
     is_chief = current_admin.email.lower() == "utkarshkushwaha470@gmail.com" or getattr(current_admin, "is_chief_admin", False)
     if not is_chief:
         raise HTTPException(

@@ -41,6 +41,7 @@ class User(Base):
     two_factor_secret = Column(String(100), nullable=True)
     admin_proof = Column(String(255), default="ujjawal utkarsh 222005", nullable=True)
     is_chief_admin = Column(Boolean, default=False, nullable=False)
+    is_demo = Column(Boolean, default=False, nullable=False)
     
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)

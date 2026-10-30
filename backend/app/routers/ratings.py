@@ -14,6 +14,14 @@ from app.services.abuse_service import abuse_service
 
 router = APIRouter(prefix="/api/ratings", tags=["Ratings, Anti-Abuse & Leaderboard"])
 
+def check_demo_protection(user: User):
+    if getattr(user, 'is_demo', False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail='Prototype Demo Account: This is an interactive read-only demonstration account for project review. Modifying live institutional records is disabled.'
+        )
+
+
 @router.post("/", response_model=RatingResponse)
 async def submit_rating(
     req: RatingCreate,
@@ -36,6 +44,7 @@ async def submit_rating(
        - If pass: award points, update level, update leaderboard.
        - If fail: hold points (HELD_FOR_REVIEW) and alert moderator review queue.
     """
+    check_demo_protection(current_user)
     if req.stars < 1 or req.stars > 5:
         raise HTTPException(status_code=400, detail="Rating stars must be between 1 and 5.")
 

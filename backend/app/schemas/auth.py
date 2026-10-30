@@ -67,6 +67,7 @@ class UserResponse(BaseModel):
     level: int
     badges: str
     is_chief_admin: Optional[bool] = False
+    is_demo: Optional[bool] = False
     created_at: datetime
 
 class TokenResponse(BaseModel):

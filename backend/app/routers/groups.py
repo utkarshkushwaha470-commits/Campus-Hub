@@ -13,6 +13,14 @@ from app.services.audit_service import audit_service
 
 router = APIRouter(prefix="/api/groups", tags=["Purpose Groups"])
 
+def check_demo_protection(user: User):
+    if getattr(user, 'is_demo', False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail='Prototype Demo Account: This is an interactive read-only demonstration account for project review. Modifying live institutional records is disabled.'
+        )
+
+
 class CreateGroupRequest(BaseModel):
     name: str
     purpose: str
@@ -84,6 +92,7 @@ async def create_group(
     Admin-only endpoint to create a new purpose group.
     Sets explicit institutional purpose, assigns students, and logs action.
     """
+    check_demo_protection(current_user)
     if not req.name.strip():
         raise HTTPException(status_code=400, detail="Group name is required.")
     if not req.purpose.strip():
@@ -311,6 +320,7 @@ async def post_group_message(
     db: Session = Depends(get_db)
 ):
     """Post an update, instruction, or discussion message to the group."""
+    check_demo_protection(current_user)
     group = db.query(CampusGroup).filter(CampusGroup.id == group_id, CampusGroup.is_active == True).first()
     if not group:
         raise HTTPException(status_code=404, detail="Group not found.")

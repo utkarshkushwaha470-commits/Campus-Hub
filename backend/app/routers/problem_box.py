@@ -17,6 +17,14 @@ from app.services.websocket_manager import ws_manager
 
 router = APIRouter(prefix="/api/problem-box", tags=["Confidential Problem Box"])
 
+def check_demo_protection(user: User):
+    if getattr(user, 'is_demo', False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail='Prototype Demo Account: This is an interactive read-only demonstration account for project review. Modifying live institutional records is disabled.'
+        )
+
+
 admin_only = require_roles([UserRole.ADMIN])
 
 @router.post("/", response_model=ProblemBoxStudentResponse)
@@ -33,6 +41,7 @@ async def submit_problem_message(
     3. Gemma 4 safety pre-screening receives ONLY the message text (NO student name/email/ID).
     4. Urgent safety issues flagged to rise to the top of the admin queue.
     """
+    check_demo_protection(current_user)
     if req.recipient_role.upper() not in [ProblemRecipientRole.DEAN, ProblemRecipientRole.HOD, ProblemRecipientRole.DIRECTOR]:
         raise HTTPException(
             status_code=400,

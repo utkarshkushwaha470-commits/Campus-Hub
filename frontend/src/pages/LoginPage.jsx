@@ -888,62 +888,62 @@ export default function LoginPage({ onLoginSuccess, onGoToSignUp }) {
               <div className="flex items-center gap-2">
                 <span className="text-base">🏢</span>
                 <span className="text-xs font-bold text-white uppercase tracking-wider">
-                  Company Presentation Demos
+                  Company Demo Sandbox
                 </span>
               </div>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-950 text-indigo-300 border border-indigo-700/60">
-                1-Click Evaluation
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-950 text-amber-300 border border-amber-700/60">
+                Prototype Mode
               </span>
             </div>
 
             <p className="text-[11px] text-slate-400 mb-3 leading-snug">
-              Instant 1-click accounts prepared for live company review of all institutional roles:
+              Interactive preview accounts with fake personas for evaluation. Read-only prototype mode — real institutional data cannot be altered:
             </p>
 
             <div className="space-y-2">
-              {/* 1. Chief Administrator: Utkarsh Kushwaha */}
+              {/* 1. Fake Chief Admin Demo */}
               <button
                 type="button"
                 disabled={loading}
-                onClick={() => handleFastDemoLogin('utkarshkushwaha470@gmail.com', 'utkarsh2720A', true, 'ujjawal utkarsh 222005')}
+                onClick={() => handleFastDemoLogin('demo.chief@brogrammers.local', 'Demo@123', true, 'demoproof2026')}
                 className="w-full p-2.5 rounded-xl bg-gradient-to-r from-amber-950/70 via-slate-900 to-amber-950/50 hover:from-amber-900/80 hover:to-slate-800 border border-amber-500/50 text-left transition shadow-md flex items-center justify-between group"
               >
                 <div className="flex items-center gap-2.5">
                   <span className="text-lg">🛡️</span>
                   <div>
                     <div className="text-xs font-black text-amber-300 group-hover:text-amber-200">
-                      UTKARSH KUSHWAHA
+                      Demo Chief Admin (Prototype)
                     </div>
                     <div className="text-[10px] text-slate-400 font-mono">
-                      Chief Administrator • Executive Oversight
+                      Simulated Admin • Oversight Dashboard Preview
                     </div>
                   </div>
                 </div>
                 <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500 text-slate-950 font-black">
-                  CHIEF ADMIN
+                  DEMO CHIEF
                 </span>
               </button>
 
-              {/* 2. Faculty: Dr. Vikram Sharma */}
+              {/* 2. Fake Faculty Demo */}
               <button
                 type="button"
                 disabled={loading}
-                onClick={() => handleFastDemoLogin('faculty.demo@apex.edu', 'Faculty@123', false)}
+                onClick={() => handleFastDemoLogin('demo.faculty@brogrammers.local', 'Demo@123', false)}
                 className="w-full p-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-purple-500/40 text-left transition shadow-sm flex items-center justify-between group"
               >
                 <div className="flex items-center gap-2.5">
                   <span className="text-lg">👨‍🏫</span>
                   <div>
                     <div className="text-xs font-bold text-purple-300 group-hover:text-purple-200">
-                      Dr. Vikram Sharma
+                      Demo Faculty (Dr. Sample)
                     </div>
                     <div className="text-[10px] text-slate-400 font-mono">
-                      Faculty / HOD • Problem Box & Advisory
+                      Simulated Faculty • Problem Box & Grievance Preview
                     </div>
                   </div>
                 </div>
                 <span className="text-[10px] px-2 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-700/60 font-bold">
-                  FACULTY
+                  DEMO FACULTY
                 </span>
               </button>
 
@@ -953,20 +953,20 @@ export default function LoginPage({ onLoginSuccess, onGoToSignUp }) {
                 <button
                   type="button"
                   disabled={loading}
-                  onClick={() => handleFastDemoLogin('student.4th@apex.edu', 'Student@123', false)}
+                  onClick={() => handleFastDemoLogin('demo.student4@brogrammers.local', 'Demo@123', false)}
                   className="p-2 rounded-xl bg-slate-950 hover:bg-slate-800 border border-blue-500/40 text-left transition shadow-sm flex flex-col justify-between group"
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-sm">⭐</span>
                     <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-950 text-blue-300 border border-blue-700/50 font-bold">
-                      YEAR 4
+                      DEMO YR 4
                     </span>
                   </div>
                   <div className="mt-1">
                     <div className="text-[11px] font-bold text-blue-300 group-hover:text-blue-200 truncate">
-                      Priya Nair
+                      Demo 4th Yr Senior
                     </div>
-                    <div className="text-[9px] text-slate-400 font-mono">Senior Guide • 4th Yr</div>
+                    <div className="text-[9px] text-slate-400 font-mono">Senior Guide Sandbox</div>
                   </div>
                 </button>
 
@@ -974,20 +974,20 @@ export default function LoginPage({ onLoginSuccess, onGoToSignUp }) {
                 <button
                   type="button"
                   disabled={loading}
-                  onClick={() => handleFastDemoLogin('student.3rd@apex.edu', 'Student@123', false)}
+                  onClick={() => handleFastDemoLogin('demo.student3@brogrammers.local', 'Demo@123', false)}
                   className="p-2 rounded-xl bg-slate-950 hover:bg-slate-800 border border-cyan-500/40 text-left transition shadow-sm flex flex-col justify-between group"
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-sm">🎓</span>
                     <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-700/50 font-bold">
-                      YEAR 3
+                      DEMO YR 3
                     </span>
                   </div>
                   <div className="mt-1">
                     <div className="text-[11px] font-bold text-cyan-300 group-hover:text-cyan-200 truncate">
-                      Rohit Verma
+                      Demo 3rd Yr Senior
                     </div>
-                    <div className="text-[9px] text-slate-400 font-mono">Senior • 3rd Yr</div>
+                    <div className="text-[9px] text-slate-400 font-mono">Peer Discussion Sandbox</div>
                   </div>
                 </button>
 
@@ -995,20 +995,20 @@ export default function LoginPage({ onLoginSuccess, onGoToSignUp }) {
                 <button
                   type="button"
                   disabled={loading}
-                  onClick={() => handleFastDemoLogin('student.2nd@apex.edu', 'Student@123', false)}
+                  onClick={() => handleFastDemoLogin('demo.student2@brogrammers.local', 'Demo@123', false)}
                   className="p-2 rounded-xl bg-slate-950 hover:bg-slate-800 border border-indigo-500/40 text-left transition shadow-sm flex flex-col justify-between group"
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-sm">📘</span>
                     <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-700/50 font-bold">
-                      YEAR 2
+                      DEMO YR 2
                     </span>
                   </div>
                   <div className="mt-1">
                     <div className="text-[11px] font-bold text-indigo-300 group-hover:text-indigo-200 truncate">
-                      Aarav Mehta
+                      Demo 2nd Yr Student
                     </div>
-                    <div className="text-[9px] text-slate-400 font-mono">Sophomore • 2nd Yr</div>
+                    <div className="text-[9px] text-slate-400 font-mono">Sophomore Lounge Sandbox</div>
                   </div>
                 </button>
 
@@ -1016,20 +1016,20 @@ export default function LoginPage({ onLoginSuccess, onGoToSignUp }) {
                 <button
                   type="button"
                   disabled={loading}
-                  onClick={() => handleFastDemoLogin('student.1st@apex.edu', 'Student@123', false)}
+                  onClick={() => handleFastDemoLogin('demo.student1@brogrammers.local', 'Demo@123', false)}
                   className="p-2 rounded-xl bg-slate-950 hover:bg-slate-800 border border-emerald-500/40 text-left transition shadow-sm flex flex-col justify-between group"
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-sm">🌱</span>
                     <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-700/50 font-bold">
-                      YEAR 1
+                      DEMO YR 1
                     </span>
                   </div>
                   <div className="mt-1">
                     <div className="text-[11px] font-bold text-emerald-300 group-hover:text-emerald-200 truncate">
-                      Ananya Sen
+                      Demo 1st Yr Junior
                     </div>
-                    <div className="text-[9px] text-slate-400 font-mono">Junior • 1st Yr</div>
+                    <div className="text-[9px] text-slate-400 font-mono">Junior Mentee Sandbox</div>
                   </div>
                 </button>
               </div>

@@ -111,6 +111,24 @@ export default function App() {
         </div>
       )}
 
+      {/* Persistent Prototype Demo Mode Banner */}
+      {user.is_demo && (
+        <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-slate-950 px-4 py-2 text-xs flex items-center justify-between shadow-xl sticky top-0 z-50">
+          <div className="flex items-center gap-2">
+            <span className="text-base">🔒</span>
+            <span>
+              <strong>PROTOTYPE DEMO MODE</strong>: Viewing as <strong>{user.full_name}</strong>. Interactive preview only — live data cannot be modified.
+            </span>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="px-3 py-1 rounded-lg bg-slate-950 text-amber-300 hover:text-white text-[11px] font-black transition border border-amber-400/40 shadow-sm whitespace-nowrap"
+          >
+            Exit Demo ➔
+          </button>
+        </div>
+      )}
+
       {/* Responsive Navbar */}
       <Navbar
         user={user}
