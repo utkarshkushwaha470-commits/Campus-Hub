@@ -217,6 +217,27 @@ export default function LoginPage({ onLoginSuccess, onGoToSignUp }) {
     }
   };
 
+  const handleFastDemoLogin = async (demoEmail, demoPass, isAdmin = false, adminProof = '') => {
+    setError(null);
+    setLoading(true);
+    try {
+      const data = await api.login(
+        demoEmail,
+        demoPass,
+        isAdmin ? '123456' : '',
+        isAdmin,
+        isAdmin ? adminProof : ''
+      );
+      setAuthToken(data.access_token);
+      setCurrentUser(data.user);
+      onLoginSuccess(data.user);
+    } catch (err) {
+      setError(err.message || 'Demo login failed. Please verify credentials.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-12">
       <div className={`w-full max-w-md bg-slate-900 border rounded-2xl p-8 shadow-2xl relative overflow-hidden transition-all duration-200 ${
@@ -835,7 +856,7 @@ export default function LoginPage({ onLoginSuccess, onGoToSignUp }) {
         )}
 
         {/* Student Mode: Admin Option Card */}
-        {roleMode === 'STUDENT' && (
+        {roleMode === 'STUDENT' && !isForgotPassword && (
           <div className="mt-6 pt-5 border-t border-slate-800/80">
             {/* Dedicated Admin Login Section Shortcut */}
             <div className="p-3.5 rounded-xl bg-gradient-to-r from-amber-950/60 to-slate-950 border border-amber-600/50 flex items-center justify-between">
@@ -856,6 +877,162 @@ export default function LoginPage({ onLoginSuccess, onGoToSignUp }) {
               >
                 Admin Login ➔
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* ================= COMPANY PRESENTATION DEMO ACCOUNTS ================= */}
+        {!isForgotPassword && (
+          <div className="mt-6 pt-5 border-t border-slate-800/90">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🏢</span>
+                <span className="text-xs font-bold text-white uppercase tracking-wider">
+                  Company Presentation Demos
+                </span>
+              </div>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-950 text-indigo-300 border border-indigo-700/60">
+                1-Click Evaluation
+              </span>
+            </div>
+
+            <p className="text-[11px] text-slate-400 mb-3 leading-snug">
+              Instant 1-click accounts prepared for live company review of all institutional roles:
+            </p>
+
+            <div className="space-y-2">
+              {/* 1. Chief Administrator: Utkarsh Kushwaha */}
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => handleFastDemoLogin('utkarshkushwaha470@gmail.com', 'utkarsh2720A', true, 'ujjawal utkarsh 222005')}
+                className="w-full p-2.5 rounded-xl bg-gradient-to-r from-amber-950/70 via-slate-900 to-amber-950/50 hover:from-amber-900/80 hover:to-slate-800 border border-amber-500/50 text-left transition shadow-md flex items-center justify-between group"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="text-lg">🛡️</span>
+                  <div>
+                    <div className="text-xs font-black text-amber-300 group-hover:text-amber-200">
+                      UTKARSH KUSHWAHA
+                    </div>
+                    <div className="text-[10px] text-slate-400 font-mono">
+                      Chief Administrator • Executive Oversight
+                    </div>
+                  </div>
+                </div>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500 text-slate-950 font-black">
+                  CHIEF ADMIN
+                </span>
+              </button>
+
+              {/* 2. Faculty: Dr. Vikram Sharma */}
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => handleFastDemoLogin('faculty.demo@apex.edu', 'Faculty@123', false)}
+                className="w-full p-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-purple-500/40 text-left transition shadow-sm flex items-center justify-between group"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="text-lg">👨‍🏫</span>
+                  <div>
+                    <div className="text-xs font-bold text-purple-300 group-hover:text-purple-200">
+                      Dr. Vikram Sharma
+                    </div>
+                    <div className="text-[10px] text-slate-400 font-mono">
+                      Faculty / HOD • Problem Box & Advisory
+                    </div>
+                  </div>
+                </div>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-700/60 font-bold">
+                  FACULTY
+                </span>
+              </button>
+
+              {/* 3. All Year Students Grid (Year 4, 3, 2, 1) */}
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                {/* Year 4 Senior */}
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => handleFastDemoLogin('student.4th@apex.edu', 'Student@123', false)}
+                  className="p-2 rounded-xl bg-slate-950 hover:bg-slate-800 border border-blue-500/40 text-left transition shadow-sm flex flex-col justify-between group"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">⭐</span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-950 text-blue-300 border border-blue-700/50 font-bold">
+                      YEAR 4
+                    </span>
+                  </div>
+                  <div className="mt-1">
+                    <div className="text-[11px] font-bold text-blue-300 group-hover:text-blue-200 truncate">
+                      Priya Nair
+                    </div>
+                    <div className="text-[9px] text-slate-400 font-mono">Senior Guide • 4th Yr</div>
+                  </div>
+                </button>
+
+                {/* Year 3 Senior */}
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => handleFastDemoLogin('student.3rd@apex.edu', 'Student@123', false)}
+                  className="p-2 rounded-xl bg-slate-950 hover:bg-slate-800 border border-cyan-500/40 text-left transition shadow-sm flex flex-col justify-between group"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">🎓</span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-700/50 font-bold">
+                      YEAR 3
+                    </span>
+                  </div>
+                  <div className="mt-1">
+                    <div className="text-[11px] font-bold text-cyan-300 group-hover:text-cyan-200 truncate">
+                      Rohit Verma
+                    </div>
+                    <div className="text-[9px] text-slate-400 font-mono">Senior • 3rd Yr</div>
+                  </div>
+                </button>
+
+                {/* Year 2 Student */}
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => handleFastDemoLogin('student.2nd@apex.edu', 'Student@123', false)}
+                  className="p-2 rounded-xl bg-slate-950 hover:bg-slate-800 border border-indigo-500/40 text-left transition shadow-sm flex flex-col justify-between group"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">📘</span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-700/50 font-bold">
+                      YEAR 2
+                    </span>
+                  </div>
+                  <div className="mt-1">
+                    <div className="text-[11px] font-bold text-indigo-300 group-hover:text-indigo-200 truncate">
+                      Aarav Mehta
+                    </div>
+                    <div className="text-[9px] text-slate-400 font-mono">Sophomore • 2nd Yr</div>
+                  </div>
+                </button>
+
+                {/* Year 1 Junior */}
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => handleFastDemoLogin('student.1st@apex.edu', 'Student@123', false)}
+                  className="p-2 rounded-xl bg-slate-950 hover:bg-slate-800 border border-emerald-500/40 text-left transition shadow-sm flex flex-col justify-between group"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">🌱</span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-700/50 font-bold">
+                      YEAR 1
+                    </span>
+                  </div>
+                  <div className="mt-1">
+                    <div className="text-[11px] font-bold text-emerald-300 group-hover:text-emerald-200 truncate">
+                      Ananya Sen
+                    </div>
+                    <div className="text-[9px] text-slate-400 font-mono">Junior • 1st Yr</div>
+                  </div>
+                </button>
+              </div>
             </div>
           </div>
         )}
