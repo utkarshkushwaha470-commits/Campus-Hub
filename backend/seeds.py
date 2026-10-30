@@ -6,6 +6,7 @@ from app.database import SessionLocal, Base, engine
 from app.models.user import User, UserRole, AccountStatus
 from app.models.problem_box import ProblemBoxMessage, ProblemRecipientRole, ProblemStatus
 from app.models.query import Query, QueryVisibility
+from app.models.group import CampusGroup, GroupMember, GroupMessage, GroupCategory
 from app.services.auth_service import get_password_hash
 
 def run_seed():
@@ -235,8 +236,59 @@ def run_seed():
             db.add(q)
         db.commit()
 
+    # 7. Seed Initial Purpose Groups if empty
+    group_count = db.query(CampusGroup).count()
+    if group_count == 0:
+        all_users = db.query(User).all()
+        admin_user = chief
+        
+        g1 = CampusGroup(
+            id=str(uuid.uuid4()),
+            name="Placement & Career Preparation Cell 2026",
+            purpose="Official recruitment drives, mock technical interviews, DSA coding sheets, and company-specific preparation guides for all years.",
+            category=GroupCategory.PLACEMENT,
+            created_by_admin_id=admin_user.id,
+            is_active=True
+        )
+        g2 = CampusGroup(
+            id=str(uuid.uuid4()),
+            name="Allenhouse AI & Technical Innovation Club",
+            purpose="Inter-college hackathons, open-source projects, machine learning workshops, and startup project collaborations.",
+            category=GroupCategory.CLUB,
+            created_by_admin_id=admin_user.id,
+            is_active=True
+        )
+        db.add(g1)
+        db.add(g2)
+        db.commit()
+
+        # Add all students and faculty as members
+        for u in all_users:
+            role = "ADMIN" if u.id == admin_user.id else "MEMBER"
+            db.add(GroupMember(id=str(uuid.uuid4()), group_id=g1.id, user_id=u.id, role_in_group=role))
+            db.add(GroupMember(id=str(uuid.uuid4()), group_id=g2.id, user_id=u.id, role_in_group=role))
+        
+        # Add welcome messages
+        db.add(GroupMessage(
+            id=str(uuid.uuid4()),
+            group_id=g1.id,
+            sender_id=admin_user.id,
+            sender_name=admin_user.full_name,
+            sender_role="ADMIN",
+            content_text="Welcome to the Campus Placement Cell! Check the files section for 2026 aptitude question banks and top recruiter guidelines."
+        ))
+        db.add(GroupMessage(
+            id=str(uuid.uuid4()),
+            group_id=g2.id,
+            sender_id=admin_user.id,
+            sender_name=admin_user.full_name,
+            sender_role="ADMIN",
+            content_text="Welcome to the AI & Innovation Club! Hackathon registration details are posted. Feel free to pitch your project ideas here."
+        ))
+        db.commit()
+
     db.close()
-    print("Demo setup completed: Chief Admin + Faculty + 4 Year Students verified with active content.")
+    print("Demo setup completed: Chief Admin + Faculty + 4 Year Students + Campus Groups verified.")
 
 if __name__ == "__main__":
     run_seed()

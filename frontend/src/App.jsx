@@ -54,6 +54,16 @@ export default function App() {
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [problemPendingCount, setProblemPendingCount] = useState(0);
+  const [navBadges, setNavBadges] = useState({
+    dashboard: 0,
+    campus_dm: 0,
+    year_sections: 0,
+    groups: 0,
+    problem_box: 0,
+    leaderboard: 0,
+    admin_portal: 0,
+    faculty_direct_chat: 0
+  });
   
   // Track previous counts to detect fresh incoming messages
   const prevChatCountRef = useRef(0);
@@ -116,6 +126,56 @@ export default function App() {
 
     const checkIncomingUpdates = async () => {
       try {
+        // Real-time synchronization across all devices
+        const badges = await api.getNavBadges();
+        if (badges) {
+          setNavBadges(badges);
+          const totalUnread = badges.campus_dm || 0;
+          setUnreadChatCount(totalUnread);
+          setHasUnreadMessages(totalUnread > 0);
+
+          if (totalUnread > prevChatCountRef.current && prevChatCountRef.current !== 0) {
+            playNotificationChime();
+            setPopupToast({
+              id: Date.now(),
+              icon: '💬',
+              title: 'New Campus DM!',
+              subtitle: 'You received a new direct message',
+              targetPage: 'chat'
+            });
+          }
+          prevChatCountRef.current = totalUnread;
+
+          if (isAdmin) {
+            const pending = badges.problem_box || 0;
+            setProblemPendingCount(pending);
+            if (pending > prevProblemCountRef.current && prevProblemCountRef.current !== 0) {
+              playNotificationChime();
+              setPopupToast({
+                id: Date.now(),
+                icon: '📬',
+                title: 'New Problem Box Incident!',
+                subtitle: 'A student submitted a confidential report',
+                targetPage: 'problem-box'
+              });
+            }
+            prevProblemCountRef.current = pending;
+          } else {
+            const repliedCount = badges.problem_box || 0;
+            if (repliedCount > prevRepliedCountRef.current && prevRepliedCountRef.current !== 0) {
+              playNotificationChime();
+              setPopupToast({
+                id: Date.now(),
+                icon: '📬',
+                title: 'Admin Replied to Problem Box!',
+                subtitle: 'Your grievance has received an administrative response',
+                targetPage: 'problem-box'
+              });
+            }
+            prevRepliedCountRef.current = repliedCount;
+          }
+        }
+
         // 1. Campus Chat DMs Unread Check
         const inbox = await api.getChatInbox();
         if (Array.isArray(inbox)) {
@@ -322,12 +382,13 @@ export default function App() {
         }}
         onLogout={handleLogout}
         hasUnreadMessages={hasUnreadMessages}
+        navBadges={navBadges}
       />
 
       {/* Main Routed Area */}
       <main className="flex-1 pb-16">
         {activePage === 'dashboard' && (
-          <DashboardPage user={user} onNavigate={(page) => setActivePage(page)} />
+          <DashboardPage user={user} onNavigate={(page) => setActivePage(page)} navBadges={navBadges} />
         )}
         {activePage === 'chat' && (
           <CampusChatPage user={user} onClearUnread={() => setHasUnreadMessages(false)} />

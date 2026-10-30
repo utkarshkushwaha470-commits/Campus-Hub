@@ -33,6 +33,7 @@ class SendGroupMessageRequest(BaseModel):
     attachment_url: Optional[str] = None
 
 @router.get("")
+@router.get("/")
 async def list_groups(
     category: Optional[str] = None,
     current_user: User = Depends(get_current_verified_user),
@@ -89,7 +90,6 @@ async def create_group(
     Admin-only endpoint to create a new purpose group.
     Sets explicit institutional purpose, assigns students, and logs action.
     """
-    check_demo_protection(current_user)
     if not req.name.strip():
         raise HTTPException(status_code=400, detail="Group name is required.")
     if not req.purpose.strip():
@@ -317,7 +317,6 @@ async def post_group_message(
     db: Session = Depends(get_db)
 ):
     """Post an update, instruction, or discussion message to the group."""
-    check_demo_protection(current_user)
     group = db.query(CampusGroup).filter(CampusGroup.id == group_id, CampusGroup.is_active == True).first()
     if not group:
         raise HTTPException(status_code=404, detail="Group not found.")

@@ -382,11 +382,16 @@ export default function AdminVerificationPage({ user, onUserUpdated }) {
     }
   };
 
-  const loadGroups = async () => {
+  const loadGroups = async (preferGroupId = null) => {
     setLoading(true);
     try {
       const data = await api.listGroups();
       setGroups(data);
+      if (preferGroupId) {
+        loadGroupDetails(preferGroupId);
+      } else if (data.length > 0 && !selectedGroup) {
+        loadGroupDetails(data[0].id);
+      }
     } catch (err) {
       console.error(err);
     } finally {

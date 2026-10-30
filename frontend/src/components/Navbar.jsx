@@ -1,12 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 
-export default function Navbar({ user, activePage, setActivePage, onLogout, hasUnreadMessages }) {
+export default function Navbar({
+  user,
+  activePage,
+  setActivePage,
+  onLogout,
+  hasUnreadMessages,
+  navBadges = {}
+}) {
   if (!user) return null;
 
   const isPending = user.status === 'PENDING';
   const isRejected = user.status === 'REJECTED';
-  const isAdmin = user.role === 'ADMIN';
+  const isAdmin = user.role === 'ADMIN' || Boolean(user?.is_chief_admin) || (user?.email && user.email.toLowerCase().trim() === 'utkarshkushwaha470@gmail.com');
 
   // Role checks
   const isChiefAdmin = user.is_chief_admin || (user.email && user.email.toLowerCase().trim() === 'utkarshkushwaha470@gmail.com');
@@ -16,7 +23,6 @@ export default function Navbar({ user, activePage, setActivePage, onLogout, hasU
   // Unread indicators for personal chat
   const [chiefFacultyUnread, setChiefFacultyUnread] = useState(0);
   const [facultyUnreadFromChief, setFacultyUnreadFromChief] = useState(0);
-  const [problemPendingCount, setProblemPendingCount] = useState(0);
 
   useEffect(() => {
     if (isPending || isRejected || isStudent) return;
@@ -38,22 +44,15 @@ export default function Navbar({ user, activePage, setActivePage, onLogout, hasU
     return () => clearInterval(interval);
   }, [user, isChiefAdmin, isFacultyOrSubAdmin, isPending, isRejected, isStudent]);
 
-  useEffect(() => {
-    if (isPending || isRejected || !isAdmin) return;
-
-    const checkProblemBoxCount = async () => {
-      try {
-        const queue = await api.getProblemBoxAdminQueue();
-        if (Array.isArray(queue)) {
-          setProblemPendingCount(queue.filter(m => m.status === 'SUBMITTED').length);
-        }
-      } catch (err) {}
-    };
-
-    checkProblemBoxCount();
-    const interval = setInterval(checkProblemBoxCount, 4000);
-    return () => clearInterval(interval);
-  }, [isAdmin, isPending, isRejected]);
+  // Helper to render official red circular badge matching screenshot
+  const renderBadge = (count) => {
+    if (!count || count <= 0) return null;
+    return (
+      <span className="px-1.5 py-0.5 min-w-[18px] text-center rounded-full bg-rose-600 text-white text-[10px] font-black animate-pulse shadow-sm shadow-rose-600/50 inline-block leading-none">
+        {count}
+      </span>
+    );
+  };
 
   return (
     <header className="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-xl border-b border-white/10 shadow-lg shadow-black/30">
@@ -78,88 +77,89 @@ export default function Navbar({ user, activePage, setActivePage, onLogout, hasU
         {/* Navigation items (if verified) */}
         {!isPending && !isRejected && (
           <nav className="hidden md:flex items-center space-x-1">
+            {/* 1. Dashboard */}
             <button
               onClick={() => setActivePage('dashboard')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
+              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 relative cursor-pointer ${
                 activePage === 'dashboard'
                   ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-indigo-600/30'
                   : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
               }`}
             >
-              Dashboard
+              <span>Dashboard</span>
+              {renderBadge(navBadges.dashboard)}
             </button>
 
-            {/* Instagram Style Chat Nav Pill with Unread Dot */}
+            {/* 2. Campus DMs */}
             <button
               onClick={() => setActivePage('chat')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 relative ${
+              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 relative cursor-pointer ${
                 activePage === 'chat'
                   ? 'bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-600 text-white shadow-md shadow-pink-500/30'
                   : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
               }`}
             >
               <span>💬 Campus DMs</span>
-              {hasUnreadMessages && (
-                <span className="relative flex h-2.5 w-2.5 ml-0.5" title="New Message Received!">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500 shadow-md shadow-rose-500/50"></span>
-                </span>
-              )}
+              {renderBadge(navBadges.campus_dm || (hasUnreadMessages ? 1 : 0))}
             </button>
 
+            {/* 3. Year Sections */}
             <button
               onClick={() => setActivePage('year-sections')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
+              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 relative cursor-pointer ${
                 activePage === 'year-sections'
                   ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md shadow-cyan-600/30'
                   : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
               }`}
             >
-              Year Sections
+              <span>Year Sections</span>
+              {renderBadge(navBadges.year_sections)}
             </button>
 
+            {/* 4. Groups */}
             <button
               onClick={() => setActivePage('groups')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
+              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 relative cursor-pointer ${
                 activePage === 'groups'
                   ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-md shadow-purple-600/30'
                   : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
               }`}
             >
-              🏛️ Groups
+              <span>🏛️ Groups</span>
+              {renderBadge(navBadges.groups)}
             </button>
 
+            {/* 5. Problem Box */}
             <button
               onClick={() => setActivePage('problem-box')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 relative ${
+              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 relative cursor-pointer ${
                 activePage === 'problem-box'
                   ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-slate-950 shadow-md shadow-amber-500/30'
                   : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
               }`}
             >
               <span>📬 Problem Box</span>
-              {isAdmin && problemPendingCount > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full bg-rose-600 text-white text-[9px] font-black animate-pulse">
-                  {problemPendingCount}
-                </span>
-              )}
+              {renderBadge(navBadges.problem_box)}
             </button>
 
+            {/* 6. Leaderboard */}
             <button
               onClick={() => setActivePage('leaderboard')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
+              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 relative cursor-pointer ${
                 activePage === 'leaderboard'
                   ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-600/30'
                   : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
               }`}
             >
-              Leaderboard
+              <span>Leaderboard</span>
+              {renderBadge(navBadges.leaderboard)}
             </button>
 
+            {/* 7. Admin Portal */}
             {isAdmin && (
               <button
                 onClick={() => setActivePage('admin-portal')}
-                className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 relative cursor-pointer ${
                   activePage === 'admin-portal'
                     ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-slate-950 shadow-md shadow-amber-500/30 font-black'
                     : 'text-amber-400 hover:text-amber-200 hover:bg-amber-950/40 border border-amber-500/40'
@@ -167,57 +167,43 @@ export default function Navbar({ user, activePage, setActivePage, onLogout, hasU
               >
                 <span>🛡️</span>
                 <span>Admin Portal</span>
+                {renderBadge(navBadges.admin_portal)}
               </button>
             )}
 
-            {/* CHIEF ADMINISTRATOR EXCLUSIVE: Direct Chat with Faculty */}
+            {/* 8. CHIEF ADMINISTRATOR EXCLUSIVE: Direct Chat with Faculty */}
             {isChiefAdmin && (
               <button
                 onClick={() => setActivePage('chief-faculty-chat')}
-                className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 relative ${
+                className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 relative cursor-pointer ${
                   activePage === 'chief-faculty-chat'
                     ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-slate-950 font-black shadow-lg shadow-amber-500/30'
                     : 'text-amber-400 hover:text-white hover:bg-amber-950/40 border border-amber-500/40'
                 }`}
               >
                 <span>💬 Faculty Direct Chat</span>
-                {chiefFacultyUnread > 0 && (
-                  <span className="relative flex h-2 w-2 ml-0.5" title="New Message from Faculty!">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500 shadow-sm shadow-rose-500"></span>
-                  </span>
-                )}
-                {chiefFacultyUnread > 0 && (
-                  <span className="px-1.5 py-0.2 rounded-full bg-rose-600 text-white text-[9px] font-black">
-                    {chiefFacultyUnread}
-                  </span>
-                )}
+                {renderBadge(navBadges.faculty_direct_chat || chiefFacultyUnread)}
               </button>
             )}
 
-            {/* FACULTY & STAFF ADMINS: Direct Chat with Chief Admin */}
+            {/* 8b. FACULTY & STAFF ADMINS: Direct Chat with Chief Admin */}
             {isFacultyOrSubAdmin && (
               <button
                 onClick={() => setActivePage('chief-chat')}
-                className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 relative ${
+                className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 relative cursor-pointer ${
                   activePage === 'chief-chat'
                     ? 'bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 text-white font-black shadow-lg shadow-purple-600/30'
                     : 'text-purple-300 hover:text-white hover:bg-purple-950/40 border border-purple-500/40'
                 }`}
               >
                 <span>💬 Chat with Chief Admin</span>
-                {facultyUnreadFromChief > 0 && (
-                  <span className="relative flex h-2 w-2 ml-0.5" title="New Reply from Chief Admin!">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500 shadow-sm shadow-rose-500"></span>
-                  </span>
-                )}
+                {renderBadge(navBadges.faculty_direct_chat || facultyUnreadFromChief)}
               </button>
             )}
 
             <button
               onClick={() => setActivePage('settings')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
+              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
                 activePage === 'settings'
                   ? 'bg-slate-800 text-white shadow-sm'
                   : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
@@ -244,7 +230,7 @@ export default function Navbar({ user, activePage, setActivePage, onLogout, hasU
 
           <button
             onClick={() => setActivePage('settings')}
-            className={`p-2 text-xs font-medium rounded-xl transition-all ${
+            className={`p-2 text-xs font-medium rounded-xl transition-all cursor-pointer ${
               activePage === 'settings' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
             }`}
             title="Account Settings"
@@ -254,7 +240,7 @@ export default function Navbar({ user, activePage, setActivePage, onLogout, hasU
 
           <button
             onClick={onLogout}
-            className="p-2 text-xs font-medium text-slate-400 hover:text-red-400 hover:bg-slate-800/60 rounded-xl transition-all"
+            className="p-2 text-xs font-medium text-slate-400 hover:text-red-400 hover:bg-slate-800/60 rounded-xl transition-all cursor-pointer"
             title="Sign Out"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

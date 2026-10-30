@@ -164,6 +164,7 @@ export const api = {
     body: JSON.stringify(data)
   }),
   listNotifications: () => request('/notifications/'),
+  getNavBadges: () => request('/notifications/nav-badges'),
   markNotificationRead: (id) => request(`/notifications/${id}/mark-read`, {
     method: 'POST'
   }),

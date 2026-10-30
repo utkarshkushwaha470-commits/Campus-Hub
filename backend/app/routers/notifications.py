@@ -4,6 +4,16 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user import User, UserRole
+from datetime import datetime, timedelta
+from sqlalchemy import func
+from app.models.chat import Thread, Message, ChiefFacultyMessage
+from app.models.query import Query
+from app.models.group import CampusGroup, GroupMember, GroupMessage
+from app.models.problem_box import ProblemBoxMessage, ProblemStatus
+from app.models.id_verification import IDVerification
+from app.models.rating import PointsLedger
+from app.models.user import AccountStatus
+
 from app.models.notification import Notification, NotificationTargetType, UserNotificationRead
 from app.schemas.notification import NotificationCreate, NotificationResponse
 from app.services.auth_service import get_current_verified_user, require_roles
@@ -126,3 +136,121 @@ async def mark_notification_read(
         db.commit()
 
     return {"message": "Notification marked as read."}
+
+
+@router.get("/nav-badges")
+async def get_nav_badges(
+    current_user: User = Depends(get_current_verified_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Returns real-time navigation notification badge counts and dots for all sections:
+    - dashboard: unread campus broadcast alerts
+    - campus_dm: unread direct chat messages
+    - year_sections: count of open/unresolved questions in user's year (or all years if Admin/Faculty)
+    - groups: active enrolled purpose groups
+    - problem_box: pending grievances (for admin) or replied status (for student)
+    - leaderboard: new points activity or active scholar ranking count
+    - admin_portal: pending student ID card verifications (for admin)
+    - faculty_direct_chat: direct unread messages between faculty and chief admin
+    """
+    # 1. Dashboard Alerts
+    read_notif_ids = set(
+        r[0] for r in db.query(UserNotificationRead.notification_id).filter(
+            UserNotificationRead.user_id == current_user.id
+        ).all()
+    )
+    user_notifs_query = db.query(Notification.id).filter(
+        (Notification.target_type == NotificationTargetType.ALL) |
+        ((Notification.target_type == NotificationTargetType.YEAR) & (Notification.target_year == current_user.locked_year)) |
+        ((Notification.target_type == NotificationTargetType.BATCH) & (Notification.target_batch == current_user.batch))
+    )
+    all_notif_ids = set(n[0] for n in user_notifs_query.all())
+    unread_dashboard = len(all_notif_ids - read_notif_ids)
+
+    # 2. Campus DM
+    threads = db.query(Thread.id).filter(
+        (Thread.student_id == current_user.id) | (Thread.senior_id == current_user.id)
+    ).all()
+    thread_ids = [t[0] for t in threads]
+    unread_chat = 0
+    if thread_ids:
+        unread_chat = db.query(func.count(Message.id)).filter(
+            Message.thread_id.in_(thread_ids),
+            Message.sender_id != current_user.id,
+            Message.is_read == False
+        ).scalar() or 0
+
+    # 3. Year Sections (Doubts)
+    if current_user.role in [UserRole.ADMIN, UserRole.FACULTY]:
+        open_doubts = db.query(func.count(Query.id)).filter(Query.is_resolved == False).scalar() or 0
+    else:
+        target_yr = current_user.locked_year or 1
+        open_doubts = db.query(func.count(Query.id)).filter(
+            Query.target_year == target_yr,
+            Query.is_resolved == False
+        ).scalar() or 0
+
+    # 4. Purpose Groups
+    if current_user.role == UserRole.ADMIN:
+        group_ids = [g[0] for g in db.query(CampusGroup.id).filter(CampusGroup.is_active == True).all()]
+    else:
+        group_ids = [m[0] for m in db.query(GroupMember.group_id).filter(GroupMember.user_id == current_user.id).all()]
+    unread_groups = len(group_ids)
+
+    # 5. Problem Box
+    if current_user.role == UserRole.ADMIN:
+        problem_count = db.query(func.count(ProblemBoxMessage.id)).filter(
+            ProblemBoxMessage.status == ProblemStatus.SUBMITTED
+        ).scalar() or 0
+    else:
+        problem_count = db.query(func.count(ProblemBoxMessage.id)).filter(
+            ProblemBoxMessage.student_id == current_user.id,
+            ProblemBoxMessage.status == ProblemStatus.REPLIED
+        ).scalar() or 0
+
+    # 6. Leaderboard
+    cutoff = datetime.utcnow() - timedelta(days=2)
+    leaderboard_updates = db.query(func.count(PointsLedger.id)).filter(
+        PointsLedger.created_at >= cutoff
+    ).scalar() or 0
+    if leaderboard_updates == 0:
+        leaderboard_updates = 1
+
+    # 7. Admin Portal
+    admin_portal_count = 0
+    if current_user.role == UserRole.ADMIN:
+        pending_students = db.query(func.count(IDVerification.id)).filter(
+            IDVerification.status == "PENDING"
+        ).scalar() or 0
+        pending_admins = db.query(func.count(User.id)).filter(
+            User.role == UserRole.ADMIN,
+            User.status == AccountStatus.PENDING
+        ).scalar() or 0
+        admin_portal_count = pending_students + pending_admins
+
+    # 8. Faculty Chat
+    is_chief = (current_user.email.lower() == "utkarshkushwaha470@gmail.com") or getattr(current_user, "is_chief_admin", False)
+    faculty_chat_count = 0
+    if is_chief:
+        faculty_chat_count = db.query(func.count(ChiefFacultyMessage.id)).filter(
+            ChiefFacultyMessage.sender_role == "FACULTY",
+            ChiefFacultyMessage.is_read == False
+        ).scalar() or 0
+    elif current_user.role in [UserRole.FACULTY, UserRole.ADMIN]:
+        faculty_chat_count = db.query(func.count(ChiefFacultyMessage.id)).filter(
+            ChiefFacultyMessage.faculty_id == current_user.id,
+            ChiefFacultyMessage.sender_role == "CHIEF_ADMIN",
+            ChiefFacultyMessage.is_read == False
+        ).scalar() or 0
+
+    return {
+        "dashboard": unread_dashboard,
+        "campus_dm": unread_chat,
+        "year_sections": open_doubts,
+        "groups": unread_groups,
+        "problem_box": problem_count,
+        "leaderboard": leaderboard_updates,
+        "admin_portal": admin_portal_count,
+        "faculty_direct_chat": faculty_chat_count
+    }

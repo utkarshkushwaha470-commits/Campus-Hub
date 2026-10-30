@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import ProfileCard from '../components/ProfileCard';
 import { api } from '../services/api';
 
-export default function DashboardPage({ user, onNavigate }) {
+export default function DashboardPage({ user, onNavigate, navBadges = {} }) {
   const [summary, setSummary] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -25,6 +25,15 @@ export default function DashboardPage({ user, onNavigate }) {
   };
 
   const hasPremiumAccess = user.role === 'PG' || user.role === 'FACULTY' || user.role === 'ADMIN';
+  const renderBadge = (count) => {
+    if (!count || count <= 0) return null;
+    return (
+      <span className="px-1.5 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-black animate-pulse shadow-sm shadow-rose-600/50 inline-block leading-none">
+        {count}
+      </span>
+    );
+  };
+
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
@@ -56,14 +65,14 @@ export default function DashboardPage({ user, onNavigate }) {
                 onClick={() => onNavigate('chief-faculty-chat')}
                 className="px-4 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs shadow-lg shadow-purple-600/25 transition-all flex items-center gap-2"
               >
-                <span>💬 Faculty Direct Chat</span>
+                <span>💬 Faculty Direct Chat</span> {renderBadge(navBadges.faculty_direct_chat)}
               </button>
             )}
             <button
               onClick={() => onNavigate('admin-portal')}
               className="px-5 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-sm shadow-lg shadow-amber-500/25 transition-all flex items-center gap-2 flex-shrink-0"
             >
-              <span>🛡️ Enter Admin Portal</span>
+              <span>🛡️ Enter Admin Portal</span> {renderBadge(navBadges.admin_portal)}
               <span>➔</span>
             </button>
           </div>
@@ -91,7 +100,7 @@ export default function DashboardPage({ user, onNavigate }) {
             onClick={() => onNavigate('chief-chat')}
             className="px-5 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-sm shadow-lg shadow-purple-600/25 transition-all flex items-center gap-2 flex-shrink-0"
           >
-            <span>💬 Open Chief Admin Chat</span>
+            <span>💬 Open Chief Admin Chat</span> {renderBadge(navBadges.faculty_direct_chat)}
             <span>➔</span>
           </button>
         </div>
@@ -116,7 +125,7 @@ export default function DashboardPage({ user, onNavigate }) {
               </svg>
             </div>
             <div className="flex items-center justify-between">
-              <h4 className="font-bold text-white text-base">Campus DMs</h4>
+              <div className="flex items-center gap-2"><h4 className="font-bold text-white text-base">Campus DMs</h4>{renderBadge(navBadges.campus_dm)}</div>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-gradient-to-r from-pink-500/30 to-purple-500/30 text-pink-200 border border-pink-500/40">
                 INSTA-CHAT
               </span>
@@ -141,7 +150,7 @@ export default function DashboardPage({ user, onNavigate }) {
               </svg>
             </div>
             <div className="flex items-center justify-between">
-              <h4 className="font-bold text-white text-base">Year Sections</h4>
+              <div className="flex items-center gap-2"><h4 className="font-bold text-white text-base">Year Sections</h4>{renderBadge(navBadges.year_sections)}</div>
               <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-blue-950 text-blue-300">1st - 4th</span>
             </div>
             <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
@@ -200,7 +209,7 @@ export default function DashboardPage({ user, onNavigate }) {
               </svg>
             </div>
             <div className="flex items-center justify-between">
-              <h4 className="font-bold text-white text-base">Problem Box</h4>
+              <div className="flex items-center gap-2"><h4 className="font-bold text-white text-base">Problem Box</h4>{renderBadge(navBadges.problem_box)}</div>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-950 text-amber-300">CONFIDENTIAL</span>
             </div>
             <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
@@ -223,7 +232,7 @@ export default function DashboardPage({ user, onNavigate }) {
               </svg>
             </div>
             <div className="flex items-center justify-between">
-              <h4 className="font-bold text-white text-base">Leaderboard</h4>
+              <div className="flex items-center gap-2"><h4 className="font-bold text-white text-base">Leaderboard</h4>{renderBadge(navBadges.leaderboard)}</div>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-300">RANKINGS</span>
             </div>
             <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
@@ -244,7 +253,7 @@ export default function DashboardPage({ user, onNavigate }) {
               <span className="text-xl">🏛️</span>
             </div>
             <div className="flex items-center justify-between">
-              <h4 className="font-bold text-white text-base">Purpose Groups</h4>
+              <div className="flex items-center gap-2"><h4 className="font-bold text-white text-base">Purpose Groups</h4>{renderBadge(navBadges.groups)}</div>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-950 text-indigo-300">TASK FORCES</span>
             </div>
             <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
