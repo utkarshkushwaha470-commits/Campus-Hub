@@ -110,19 +110,32 @@ async def list_problem_box_admin_queue(
     admin_view = []
     for m in messages:
         student = db.query(User).filter(User.id == m.student_id).first()
+        student_name = student.full_name if student else "Unknown Student"
+        student_email = student.email if student else ""
+        student_batch = student.batch if student else ""
+        student_year = student.locked_year if student else None
+        crn = getattr(student, 'crn_or_roll_number', '') or student_batch
+        ai_summary = m.ai_safety_category or ("Urgent Safety Flag" if m.ai_safety_flag else "Standard Grievance")
+        ai_level = "CRITICAL / URGENT" if m.ai_safety_flag else "NORMAL"
+
         admin_view.append({
             "id": m.id,
             "student_id": m.student_id,
-            "student_name": student.full_name if student else "Unknown",
-            "student_email": student.email if student else "",
-            "student_batch": student.batch if student else "",
-            "student_year": student.locked_year if student else None,
+            "student_name": student_name,
+            "sender_name": student_name,
+            "student_email": student_email,
+            "sender_email": student_email,
+            "student_batch": student_batch,
+            "student_year": student_year,
+            "sender_crn": crn,
             "recipient_role": m.recipient_role,
             "subject": m.subject,
             "content_text": m.content_text,
             "status": m.status,
             "ai_safety_flag": m.ai_safety_flag,
             "ai_safety_category": m.ai_safety_category,
+            "ai_urgency_summary": ai_summary,
+            "ai_urgency_level": ai_level,
             "forwarded_to_name": m.forwarded_to_name,
             "admin_response_text": m.admin_response_text,
             "forwarded_at": m.forwarded_at,
@@ -171,7 +184,7 @@ async def forward_problem_box_anonymously(
 
     # Anonymized payload sent to institutional authority
     anonymized_payload = {
-        "institution": "Brogrammers Official Incident Report",
+        "institution": "Campus Hub Official Incident Report - Allenhouse Institute of Technology",
         "addressed_to": req.target_authority_name,
         "role": msg.recipient_role,
         "subject": msg.subject,

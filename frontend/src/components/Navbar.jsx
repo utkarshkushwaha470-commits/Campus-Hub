@@ -16,6 +16,7 @@ export default function Navbar({ user, activePage, setActivePage, onLogout, hasU
   // Unread indicators for personal chat
   const [chiefFacultyUnread, setChiefFacultyUnread] = useState(0);
   const [facultyUnreadFromChief, setFacultyUnreadFromChief] = useState(0);
+  const [problemPendingCount, setProblemPendingCount] = useState(0);
 
   useEffect(() => {
     if (isPending || isRejected || isStudent) return;
@@ -29,9 +30,7 @@ export default function Navbar({ user, activePage, setActivePage, onLogout, hasU
           const res = await api.getFacultyUnreadFromChief();
           setFacultyUnreadFromChief(res?.unread_count || 0);
         }
-      } catch (err) {
-        // quiet error in dev
-      }
+      } catch (err) {}
     };
 
     checkPersonalChatUnread();
@@ -39,21 +38,38 @@ export default function Navbar({ user, activePage, setActivePage, onLogout, hasU
     return () => clearInterval(interval);
   }, [user, isChiefAdmin, isFacultyOrSubAdmin, isPending, isRejected, isStudent]);
 
+  useEffect(() => {
+    if (isPending || isRejected || !isAdmin) return;
+
+    const checkProblemBoxCount = async () => {
+      try {
+        const queue = await api.getProblemBoxAdminQueue();
+        if (Array.isArray(queue)) {
+          setProblemPendingCount(queue.filter(m => m.status === 'SUBMITTED').length);
+        }
+      } catch (err) {}
+    };
+
+    checkProblemBoxCount();
+    const interval = setInterval(checkProblemBoxCount, 4000);
+    return () => clearInterval(interval);
+  }, [isAdmin, isPending, isRejected]);
+
   return (
-    <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800">
+    <header className="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-xl border-b border-white/10 shadow-lg shadow-black/30">
       <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
         {/* Brand */}
         <div 
           onClick={() => !isPending && !isRejected && setActivePage('dashboard')}
-          className="flex items-center space-x-2.5 cursor-pointer"
+          className="flex items-center space-x-2.5 cursor-pointer group"
         >
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/30 ring-2 ring-indigo-500/30">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/30 ring-2 ring-indigo-500/40 group-hover:scale-105 transition-all duration-300">
             <span className="text-white font-black text-lg tracking-tight">C</span>
           </div>
           <div>
-            <div className="font-extrabold text-slate-100 text-base leading-tight tracking-tight flex items-center gap-1.5">
-              Campus Hub
-              <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-blue-950 text-blue-400 border border-blue-800/50">PWA</span>
+            <div className="font-extrabold text-white text-base leading-tight tracking-tight flex items-center gap-1.5">
+              <span>Campus Hub</span>
+              <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">PWA</span>
             </div>
             <div className="text-[11px] text-slate-400 font-medium">Allenhouse Institute of Technology</div>
           </div>
@@ -64,10 +80,10 @@ export default function Navbar({ user, activePage, setActivePage, onLogout, hasU
           <nav className="hidden md:flex items-center space-x-1">
             <button
               onClick={() => setActivePage('dashboard')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
                 activePage === 'dashboard'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
               }`}
             >
               Dashboard
@@ -76,10 +92,10 @@ export default function Navbar({ user, activePage, setActivePage, onLogout, hasU
             {/* Instagram Style Chat Nav Pill with Unread Dot */}
             <button
               onClick={() => setActivePage('chat')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 relative ${
+              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 relative ${
                 activePage === 'chat'
-                  ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-sm'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                  ? 'bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-600 text-white shadow-md shadow-pink-500/30'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
               }`}
             >
               <span>💬 Campus DMs</span>
@@ -93,10 +109,10 @@ export default function Navbar({ user, activePage, setActivePage, onLogout, hasU
 
             <button
               onClick={() => setActivePage('year-sections')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
                 activePage === 'year-sections'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                  ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md shadow-cyan-600/30'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
               }`}
             >
               Year Sections
@@ -104,10 +120,10 @@ export default function Navbar({ user, activePage, setActivePage, onLogout, hasU
 
             <button
               onClick={() => setActivePage('groups')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
                 activePage === 'groups'
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                  ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-md shadow-purple-600/30'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
               }`}
             >
               🏛️ Groups
@@ -115,21 +131,26 @@ export default function Navbar({ user, activePage, setActivePage, onLogout, hasU
 
             <button
               onClick={() => setActivePage('problem-box')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 relative ${
                 activePage === 'problem-box'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                  ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-slate-950 shadow-md shadow-amber-500/30'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
               }`}
             >
-              Problem Box
+              <span>📬 Problem Box</span>
+              {isAdmin && problemPendingCount > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full bg-rose-600 text-white text-[9px] font-black animate-pulse">
+                  {problemPendingCount}
+                </span>
+              )}
             </button>
 
             <button
               onClick={() => setActivePage('leaderboard')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
                 activePage === 'leaderboard'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-600/30'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
               }`}
             >
               Leaderboard
@@ -138,10 +159,10 @@ export default function Navbar({ user, activePage, setActivePage, onLogout, hasU
             {isAdmin && (
               <button
                 onClick={() => setActivePage('admin-portal')}
-                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 ${
                   activePage === 'admin-portal'
-                    ? 'bg-amber-500 text-slate-950 shadow-md font-black'
-                    : 'text-amber-400 hover:text-amber-200 hover:bg-amber-950/40 border border-amber-600/50'
+                    ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-slate-950 shadow-md shadow-amber-500/30 font-black'
+                    : 'text-amber-400 hover:text-amber-200 hover:bg-amber-950/40 border border-amber-500/40'
                 }`}
               >
                 <span>🛡️</span>
@@ -153,9 +174,9 @@ export default function Navbar({ user, activePage, setActivePage, onLogout, hasU
             {isChiefAdmin && (
               <button
                 onClick={() => setActivePage('chief-faculty-chat')}
-                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 relative ${
+                className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 relative ${
                   activePage === 'chief-faculty-chat'
-                    ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-slate-950 font-black shadow-lg shadow-amber-500/20'
+                    ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-slate-950 font-black shadow-lg shadow-amber-500/30'
                     : 'text-amber-400 hover:text-white hover:bg-amber-950/40 border border-amber-500/40'
                 }`}
               >
@@ -174,13 +195,13 @@ export default function Navbar({ user, activePage, setActivePage, onLogout, hasU
               </button>
             )}
 
-            {/* FACULTY & STAFF ADMINS: Direct Chat with Chief Admin (Strictly Hidden for Students) */}
+            {/* FACULTY & STAFF ADMINS: Direct Chat with Chief Admin */}
             {isFacultyOrSubAdmin && (
               <button
                 onClick={() => setActivePage('chief-chat')}
-                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 relative ${
+                className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 relative ${
                   activePage === 'chief-chat'
-                    ? 'bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 text-white font-black shadow-lg shadow-purple-600/20'
+                    ? 'bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 text-white font-black shadow-lg shadow-purple-600/30'
                     : 'text-purple-300 hover:text-white hover:bg-purple-950/40 border border-purple-500/40'
                 }`}
               >
@@ -196,10 +217,10 @@ export default function Navbar({ user, activePage, setActivePage, onLogout, hasU
 
             <button
               onClick={() => setActivePage('settings')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
                 activePage === 'settings'
-                  ? 'bg-slate-700 text-white shadow-sm'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                  ? 'bg-slate-800 text-white shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
               }`}
             >
               ⚙️ Settings
@@ -210,9 +231,9 @@ export default function Navbar({ user, activePage, setActivePage, onLogout, hasU
         {/* User Pill & Logout */}
         <div className="flex items-center space-x-2">
           <div className="hidden sm:flex flex-col text-right cursor-pointer" onClick={() => setActivePage('settings')}>
-            <span className="text-xs font-bold text-slate-200 hover:text-blue-400 transition-colors">{user.full_name}</span>
+            <span className="text-xs font-bold text-slate-200 hover:text-indigo-400 transition-colors">{user.full_name}</span>
             <div className="flex items-center justify-end gap-1.5 text-[11px] text-slate-400">
-              <span className="px-1.5 py-0.2 rounded bg-slate-800 text-blue-400 font-semibold">{user.role}</span>
+              <span className="px-1.5 py-0.2 rounded-md bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 font-semibold">{user.role}</span>
               {user.locked_year ? (
                 <span className="text-slate-300">Year {user.locked_year}</span>
               ) : (
@@ -223,8 +244,8 @@ export default function Navbar({ user, activePage, setActivePage, onLogout, hasU
 
           <button
             onClick={() => setActivePage('settings')}
-            className={`p-2 text-xs font-medium rounded-lg transition-all ${
-              activePage === 'settings' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'
+            className={`p-2 text-xs font-medium rounded-xl transition-all ${
+              activePage === 'settings' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
             }`}
             title="Account Settings"
           >
@@ -233,7 +254,7 @@ export default function Navbar({ user, activePage, setActivePage, onLogout, hasU
 
           <button
             onClick={onLogout}
-            className="p-2 text-xs font-medium text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-lg transition-all"
+            className="p-2 text-xs font-medium text-slate-400 hover:text-red-400 hover:bg-slate-800/60 rounded-xl transition-all"
             title="Sign Out"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

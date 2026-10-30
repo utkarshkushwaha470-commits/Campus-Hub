@@ -28,12 +28,17 @@ class ProblemBoxAdminResponse(BaseModel):
     student_email: str
     student_batch: str
     student_year: Optional[int] = None
+    sender_name: Optional[str] = None
+    sender_email: Optional[str] = None
+    sender_crn: Optional[str] = None
     recipient_role: str
     subject: str
     content_text: str
     status: str
     ai_safety_flag: bool = False
     ai_safety_category: Optional[str] = None
+    ai_urgency_summary: Optional[str] = None
+    ai_urgency_level: Optional[str] = None
     forwarded_to_name: Optional[str] = None
     admin_response_text: Optional[str] = None
     forwarded_at: Optional[datetime] = None

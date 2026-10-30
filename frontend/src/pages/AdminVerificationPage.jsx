@@ -702,12 +702,17 @@ export default function AdminVerificationPage({ user, onUserUpdated }) {
             🏛️ Purpose Groups
           </button>
           <button
-            onClick={() => setActiveTab('problem-box')}
-            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+            onClick={() => { setActiveTab('problem-box'); loadProblemBoxQueue(); }}
+            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${
               activeTab === 'problem-box' ? 'bg-amber-500 text-slate-950 shadow-sm' : 'text-slate-400 hover:text-white'
             }`}
           >
-            📬 Problem Box
+            <span>📬 Problem Box</span>
+            {problemMessages.filter(m => m.status === 'SUBMITTED').length > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full bg-rose-600 text-white text-[9px] font-black">
+                {problemMessages.filter(m => m.status === 'SUBMITTED').length}
+              </span>
+            )}
           </button>
           <button
             onClick={() => setActiveTab('notifications')}
@@ -1801,78 +1806,141 @@ export default function AdminVerificationPage({ user, onUserUpdated }) {
 
       {/* ================= TAB 4: PROBLEM BOX QUEUE ================= */}
       {activeTab === 'problem-box' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
-          <div>
-            <h3 className="font-bold text-white text-base">Confidential Problem Box (Admin Eyes Only)</h3>
-            <p className="text-xs text-slate-400">
-              Only the admin can see student identity. Forwarding anonymizes student details before reaching Dean/Director.
-            </p>
+        <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 md:p-8 space-y-6 shadow-2xl backdrop-blur-xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  Institutional Escalation
+                </span>
+                <span className="text-xs text-amber-400 font-semibold">• Admin Eyes Only</span>
+              </div>
+              <h3 className="font-black text-white text-lg md:text-xl">Confidential Problem Box Grievances</h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Only the admin can see student identity. Forwarding anonymizes student details before reaching Dean/Director.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={loadProblemBoxQueue}
+              className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/30 transition-all flex items-center gap-1.5 self-start sm:self-auto"
+            >
+              <span>🔄</span>
+              <span>Refresh Queue</span>
+            </button>
           </div>
 
           <div className="space-y-4">
-            {problemMessages.map((msg) => (
-              <div key={msg.id} className="p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-900 pb-2">
-                  <div>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-rose-950 text-rose-300 border border-rose-800/40">
-                      Target: {msg.recipient_role}
-                    </span>
-                    <h4 className="font-bold text-white text-sm mt-1">{msg.subject}</h4>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-xs text-amber-400 font-bold block">Sender: {msg.sender_name}</span>
-                    <span className="text-[10px] text-slate-500 font-mono">({msg.sender_email} • {msg.sender_crn})</span>
-                  </div>
-                </div>
-
-                <div className="p-3 rounded-lg bg-slate-900 border border-slate-800/60 text-xs text-slate-200 whitespace-pre-wrap">
-                  {msg.content_text}
-                </div>
-
-                <div className="p-2.5 rounded-lg bg-blue-950/20 border border-blue-900/40 text-xs text-blue-300 flex items-center justify-between">
-                  <span>Gemma 4 Privacy Analysis: {msg.ai_urgency_summary}</span>
-                  <span className="font-bold">Urgency: {msg.ai_urgency_level}</span>
-                </div>
-
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
-                  <div className="flex items-center gap-2">
-                    <select
-                      value={forwardTargets[msg.id] || 'Dean of Academics'}
-                      onChange={(e) => setForwardTargets({ ...forwardTargets, [msg.id]: e.target.value })}
-                      className="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-slate-200 text-xs"
-                    >
-                      <option value="Dean of Academics">Dean of Academics</option>
-                      <option value="Head of Department (HOD)">Head of Department (HOD)</option>
-                      <option value="College Director">College Director</option>
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => handleForwardProblem(msg.id)}
-                      className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs"
-                    >
-                      Forward Anonymized
-                    </button>
-                  </div>
-
-                  <div className="flex items-center gap-2 flex-1 sm:max-w-md">
-                    <input
-                      type="text"
-                      placeholder="Official direct reply to student..."
-                      value={replyTexts[msg.id] || ''}
-                      onChange={(e) => setReplyTexts({ ...replyTexts, [msg.id]: e.target.value })}
-                      className="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-slate-200 text-xs flex-1"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleReplyProblem(msg.id)}
-                      className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs"
-                    >
-                      Reply
-                    </button>
-                  </div>
-                </div>
+            {problemMessages.length === 0 ? (
+              <div className="p-10 text-center rounded-2xl bg-slate-950/60 border border-slate-800/80">
+                <div className="text-3xl mb-2">📬</div>
+                <h4 className="text-sm font-bold text-slate-200">No Grievances in Queue</h4>
+                <p className="text-xs text-slate-400 mt-1">Student submissions to Problem Box will automatically appear here.</p>
               </div>
-            ))}
+            ) : (
+              problemMessages.map((msg) => {
+                const sName = msg.student_name || msg.sender_name || 'Confidential Student';
+                const sEmail = msg.student_email || msg.sender_email || '';
+                const sCrn = msg.sender_crn || msg.student_batch || '';
+                const sYear = msg.student_year ? `Yr ${msg.student_year}` : '';
+
+                return (
+                  <div key={msg.id} className="p-5 md:p-6 rounded-2xl bg-slate-950/80 border border-slate-800/80 hover:border-indigo-500/30 space-y-3.5 transition-all shadow-lg">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-900 pb-2.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                          Target: {msg.recipient_role}
+                        </span>
+                        <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider ${
+                          msg.status === 'REPLIED'
+                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                            : msg.status === 'FORWARDED_ANONYMOUSLY'
+                            ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40'
+                            : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                        }`}>
+                          {msg.status === 'FORWARDED_ANONYMOUSLY' ? 'FORWARDED' : msg.status}
+                        </span>
+                        {msg.ai_safety_flag && (
+                          <span className="px-2 py-0.5 rounded-lg text-[10px] font-black uppercase bg-red-600 text-white">
+                            ⚠️ {msg.ai_safety_category || 'URGENT'}
+                          </span>
+                        )}
+                        <h4 className="font-bold text-white text-sm mt-0.5">{msg.subject}</h4>
+                      </div>
+                      <div className="p-2 sm:px-3 sm:py-1 rounded-xl bg-slate-900 border border-amber-500/30 text-left sm:text-right">
+                        <span className="text-xs text-amber-300 font-bold block">{sName}</span>
+                        <span className="text-[10px] text-slate-400 font-mono">({sEmail} {sCrn ? `• ${sCrn}` : ''} {sYear ? `• ${sYear}` : ''})</span>
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 text-xs text-slate-200 leading-relaxed whitespace-pre-wrap">
+                      {msg.content_text}
+                    </div>
+
+                    {msg.forwarded_to_name && (
+                      <div className="p-2.5 rounded-xl bg-blue-950/40 border border-blue-800/60 text-xs text-blue-200 flex items-center justify-between">
+                        <span>✓ Forwarded Anonymously to: <strong>{msg.forwarded_to_name}</strong></span>
+                        {msg.forwarded_at && <span className="text-[10px] text-blue-400 font-mono">{new Date(msg.forwarded_at).toLocaleString()}</span>}
+                      </div>
+                    )}
+
+                    {msg.admin_response_text && (
+                      <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-800/60 text-xs text-emerald-200">
+                        <div className="font-bold flex items-center justify-between mb-0.5">
+                          <span>✓ Official Response Delivered to Student:</span>
+                          {msg.replied_at && <span className="text-[10px] text-emerald-400 font-mono font-normal">({new Date(msg.replied_at).toLocaleString()})</span>}
+                        </div>
+                        <p className="text-slate-200 pl-3 border-l border-emerald-500">{msg.admin_response_text}</p>
+                      </div>
+                    )}
+
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2 border-t border-slate-900">
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={forwardTargets[msg.id] || 'Dean of Academics & Student Welfare'}
+                          onChange={(e) => setForwardTargets({ ...forwardTargets, [msg.id]: e.target.value })}
+                          className="px-2.5 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-slate-200 text-xs focus:outline-none focus:border-indigo-500"
+                        >
+                          <option value="Dean of Academics & Student Welfare">Dean of Academics</option>
+                          <option value="Head of Department (HOD)">Head of Department (HOD)</option>
+                          <option value="College Director / Principal">College Director</option>
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => handleForwardProblem(msg.id)}
+                          className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md shadow-blue-600/30 whitespace-nowrap"
+                        >
+                          Forward Anonymized
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-1 sm:max-w-md">
+                        <input
+                          type="text"
+                          placeholder="Official direct reply to student..."
+                          value={replyTexts[msg.id] || ''}
+                          onChange={(e) => setReplyTexts({ ...replyTexts, [msg.id]: e.target.value })}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleReplyProblem(msg.id);
+                            }
+                          }}
+                          className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-slate-200 text-xs flex-1 focus:outline-none focus:border-emerald-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleReplyProblem(msg.id)}
+                          className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/30 whitespace-nowrap"
+                        >
+                          Reply
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       )}
