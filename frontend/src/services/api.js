@@ -207,6 +207,9 @@ export const api = {
     method: 'POST',
     body: JSON.stringify(data)
   }),
+  joinGroup: (groupId) => request(/groups//join, {
+    method: 'POST'
+  }),
   addGroupMember: (groupId, userId, role = 'MEMBER') => request(`/groups/${groupId}/members`, {
     method: 'POST',
     body: JSON.stringify({ user_id: userId, role_in_group: role })

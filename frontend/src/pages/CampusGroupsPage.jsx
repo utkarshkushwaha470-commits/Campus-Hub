@@ -7,6 +7,7 @@ export default function CampusGroupsPage({ user }) {
   const [groupMessages, setGroupMessages] = useState([]);
   const [msgInput, setMsgInput] = useState('');
   const [loading, setLoading] = useState(true);
+  const [statusMsg, setStatusMsg] = useState(null);
 
   // Group creation modal state
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -36,18 +37,26 @@ export default function CampusGroupsPage({ user }) {
     return () => clearInterval(interval);
   }, [selectedGroup]);
 
+  const showToast = (text, isError = false) => {
+    setStatusMsg({ text, isError });
+    setTimeout(() => setStatusMsg(null), 4500);
+  };
+
   const loadMyGroups = async (preferGroupId = null) => {
     setLoading(true);
     try {
       const data = await api.listGroups();
-      setGroups(data);
+      setGroups(data || []);
       if (preferGroupId) {
         loadGroupDetails(preferGroupId);
-      } else if (data.length > 0) {
+      } else if (data && data.length > 0) {
+        // Automatically select the first available group so the user isn't left with an empty screen
         loadGroupDetails(data[0].id);
+      } else {
+        setSelectedGroup(null);
       }
     } catch (err) {
-      console.error(err);
+      console.error('Error loading groups:', err);
     } finally {
       setLoading(false);
     }
@@ -56,9 +65,9 @@ export default function CampusGroupsPage({ user }) {
   const loadStudents = async () => {
     try {
       const data = await api.listAllStudents('', 'APPROVED');
-      setStudents(data);
+      setStudents(data || []);
     } catch (err) {
-      console.error(err);
+      setStudents([]);
     }
   };
 
@@ -66,10 +75,14 @@ export default function CampusGroupsPage({ user }) {
     try {
       const details = await api.getGroupDetails(groupId);
       setSelectedGroup(details);
-      const msgs = await api.getGroupMessages(groupId);
-      setGroupMessages(msgs);
+      try {
+        const msgs = await api.getGroupMessages(groupId);
+        setGroupMessages(msgs || []);
+      } catch (e) {
+        setGroupMessages([]);
+      }
     } catch (err) {
-      console.error(err);
+      console.error('Error loading group details:', err);
     }
   };
 
@@ -80,16 +93,28 @@ export default function CampusGroupsPage({ user }) {
       await api.postGroupMessage(selectedGroup.id, msgInput.trim());
       setMsgInput('');
       const msgs = await api.getGroupMessages(selectedGroup.id);
-      setGroupMessages(msgs);
+      setGroupMessages(msgs || []);
     } catch (err) {
-      alert(err.message || 'Failed to post message');
+      showToast(err.message || 'Failed to post message', true);
+    }
+  };
+
+  const handleJoinGroup = async () => {
+    if (!selectedGroup) return;
+    try {
+      const res = await api.joinGroup(selectedGroup.id);
+      showToast(res.message || 'Joined group successfully!');
+      loadGroupDetails(selectedGroup.id);
+      loadMyGroups(selectedGroup.id);
+    } catch (err) {
+      showToast(err.message || 'Failed to join group', true);
     }
   };
 
   const handleCreateGroup = async (e) => {
     e.preventDefault();
     if (!newGroupName.trim() || !newGroupPurpose.trim()) {
-      alert('Please provide both a group name and a specific purpose directive.');
+      showToast('Please provide both a group name and a specific purpose directive.', true);
       return;
     }
     setCreatingGroup(true);
@@ -97,17 +122,18 @@ export default function CampusGroupsPage({ user }) {
       const res = await api.createGroup({
         name: newGroupName.trim(),
         purpose: newGroupPurpose.trim(),
+        description: newGroupPurpose.trim(),
         category: newGroupCategory,
         member_ids: selectedMembers
       });
-      alert(`✓ ${res.message || 'Group created successfully!'}`);
+      showToast(res.message || `Purpose group '${newGroupName.trim()}' successfully launched!`);
       setCreateModalOpen(false);
       setNewGroupName('');
       setNewGroupPurpose('');
       setSelectedMembers([]);
       loadMyGroups(res.id);
     } catch (err) {
-      alert(err.message || 'Error creating group');
+      showToast(err.message || 'Error creating purpose group', true);
     } finally {
       setCreatingGroup(false);
     }
@@ -116,17 +142,28 @@ export default function CampusGroupsPage({ user }) {
   const handleAddMember = async () => {
     if (!selectedGroup || !addMemberUserId) return;
     try {
-      await api.addGroupMember(selectedGroup.id, addMemberUserId);
+      const res = await api.addGroupMember(selectedGroup.id, addMemberUserId);
+      showToast(res.message || 'Student added to purpose group!');
       setAddMemberUserId('');
       loadGroupDetails(selectedGroup.id);
       loadMyGroups(selectedGroup.id);
     } catch (err) {
-      alert(err.message || 'Failed to add student');
+      showToast(err.message || 'Failed to add student', true);
     }
   };
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
+      {/* Toast Notification Banner */}
+      {statusMsg && (
+        <div className={`p-3.5 rounded-xl text-xs font-bold transition-all shadow-lg flex items-center justify-between ${
+          statusMsg.isError ? 'bg-rose-950/90 border border-rose-700 text-rose-200' : 'bg-emerald-950/90 border border-emerald-700 text-emerald-200'
+        }`}>
+          <span>{statusMsg.isError ? '⚠️' : '✅'} {statusMsg.text}</span>
+          <button onClick={() => setStatusMsg(null)} className="text-slate-400 hover:text-white ml-2">✕</button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="rounded-2xl bg-gradient-to-r from-slate-900 via-slate-900 to-indigo-950/40 border border-slate-800 p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
@@ -140,37 +177,44 @@ export default function CampusGroupsPage({ user }) {
           </div>
           <h2 className="text-xl font-bold text-white">Campus Purpose Groups</h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            Groups formed by college administration for specific tasks, committees, placement prep, and student leadership.
+            Groups formed by college administration and campus leaders for specific tasks, committees, placement prep, and student initiatives.
           </p>
         </div>
 
-        {isAdmin && (
-          <button
-            onClick={() => {
-              setCreateModalOpen(true);
-              loadStudents();
-            }}
-            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-xs shadow-lg shadow-amber-500/20 transition-all flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
-          >
-            <span>+</span>
-            <span>Create New Group for Specific Purpose</span>
-          </button>
-        )}
+        <button
+          onClick={() => {
+            setCreateModalOpen(true);
+            loadStudents();
+          }}
+          className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-xs shadow-lg shadow-amber-500/20 transition-all flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
+        >
+          <span>+</span>
+          <span>Create New Group for Specific Purpose</span>
+        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Drawer: Groups List */}
         <div className="lg:col-span-1 space-y-3">
           <div className="flex items-center justify-between">
-            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Your Enrolled Groups</h4>
+            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Campus Groups</h4>
             <span className="text-[11px] text-slate-500">{groups.length} available</span>
           </div>
 
           {loading ? (
             <div className="text-center py-8 text-xs text-slate-500">Loading groups...</div>
           ) : groups.length === 0 ? (
-            <div className="p-6 rounded-xl bg-slate-950 border border-slate-800 text-center text-xs text-slate-500 italic">
-              You are not currently enrolled in any institutional purpose groups. The college administration will add you when relevant.
+            <div className="p-6 rounded-xl bg-slate-950 border border-slate-800 text-center text-xs text-slate-400 space-y-2">
+              <p>No purpose groups have been formed yet.</p>
+              <button
+                onClick={() => {
+                  setCreateModalOpen(true);
+                  loadStudents();
+                }}
+                className="px-3 py-1.5 rounded-lg bg-amber-500 text-slate-950 font-bold text-xs hover:bg-amber-400"
+              >
+                + Launch First Group
+              </button>
             </div>
           ) : (
             <div className="space-y-2.5 max-h-[520px] overflow-y-auto pr-1">
@@ -194,6 +238,11 @@ export default function CampusGroupsPage({ user }) {
                   </div>
                   <h5 className="font-bold text-white text-sm">{g.name}</h5>
                   <p className="text-xs text-slate-400 line-clamp-2 mt-1">{g.purpose}</p>
+                  {g.is_member && (
+                    <span className="inline-block mt-2 text-[10px] text-emerald-400 font-bold">
+                      ✓ Enrolled Member
+                    </span>
+                  )}
                 </div>
               ))}
             </div>
@@ -217,29 +266,40 @@ export default function CampusGroupsPage({ user }) {
                     <h3 className="text-lg font-bold text-white mt-1.5">{selectedGroup.name}</h3>
                   </div>
 
-                  {isAdmin && (
-                    <div className="flex items-center gap-2">
-                      <select
-                        value={addMemberUserId}
-                        onChange={(e) => setAddMemberUserId(e.target.value)}
-                        className="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-slate-200 text-xs"
-                      >
-                        <option value="">+ Add Student to Group</option>
-                        {students.map((st) => (
-                          <option key={st.id} value={st.id}>
-                            {st.full_name} ({st.crn_or_roll_number})
-                          </option>
-                        ))}
-                      </select>
+                  <div className="flex items-center gap-2">
+                    {!selectedGroup.is_member && (
                       <button
-                        onClick={handleAddMember}
-                        disabled={!addMemberUserId}
-                        className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-bold text-xs cursor-pointer"
+                        onClick={handleJoinGroup}
+                        className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-xs shadow-md shadow-emerald-500/20 cursor-pointer"
                       >
-                        Add
+                        + Join This Group
                       </button>
-                    </div>
-                  )}
+                    )}
+
+                    {isAdmin && (
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={addMemberUserId}
+                          onChange={(e) => setAddMemberUserId(e.target.value)}
+                          className="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-slate-200 text-xs"
+                        >
+                          <option value="">+ Add Student to Group</option>
+                          {students.map((st) => (
+                            <option key={st.id} value={st.id}>
+                              {st.full_name} ({st.crn_or_roll_number})
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={handleAddMember}
+                          disabled={!addMemberUserId}
+                          className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-bold text-xs cursor-pointer"
+                        >
+                          Add
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Purpose Callout */}
@@ -306,7 +366,7 @@ export default function CampusGroupsPage({ user }) {
                 <form onSubmit={handleSendMessage} className="flex gap-2">
                   <input
                     type="text"
-                    placeholder="Post a message or directive to this purpose group..."
+                    placeholder={selectedGroup.is_member ? "Post a message or directive to this purpose group..." : "Join group to post updates..."}
                     value={msgInput}
                     onChange={(e) => setMsgInput(e.target.value)}
                     className="flex-1 px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 text-xs outline-none focus:border-indigo-500"
@@ -324,7 +384,7 @@ export default function CampusGroupsPage({ user }) {
           ) : (
             <div className="h-full min-h-[350px] flex flex-col items-center justify-center p-8 rounded-xl bg-slate-950 border border-slate-800 text-center">
               <div className="w-12 h-12 rounded-full bg-slate-900 flex items-center justify-center text-2xl mb-2">🏛️</div>
-              <h4 className="font-bold text-white text-sm">Select a Group</h4>
+              <h4 className="font-bold text-white text-sm">Campus Purpose Groups</h4>
               <p className="text-xs text-slate-400 max-w-sm mt-1">
                 Select any enrolled purpose group from the left panel to participate in discussions and view administrative directives.
               </p>
@@ -390,15 +450,13 @@ export default function CampusGroupsPage({ user }) {
                 </select>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Select Initial Student Members ({selectedMembers.length} selected)
-                </label>
-                <div className="max-h-40 overflow-y-auto space-y-1.5 p-2 rounded-xl bg-slate-950 border border-slate-800">
-                  {students.length === 0 ? (
-                    <div className="text-xs text-slate-500 text-center py-2">No students loaded yet</div>
-                  ) : (
-                    students.map((st) => (
+              {students.length > 0 && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Select Initial Student Members ({selectedMembers.length} selected)
+                  </label>
+                  <div className="max-h-40 overflow-y-auto space-y-1.5 p-2 rounded-xl bg-slate-950 border border-slate-800">
+                    {students.map((st) => (
                       <label
                         key={st.id}
                         className="flex items-center gap-2 p-1.5 rounded hover:bg-slate-900 cursor-pointer text-xs"
@@ -418,10 +476,10 @@ export default function CampusGroupsPage({ user }) {
                         <span className="font-semibold text-white">{st.full_name}</span>
                         <span className="text-[10px] text-slate-400">({st.crn_or_roll_number} • Year {st.locked_year})</span>
                       </label>
-                    ))
-                  )}
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
                 <button

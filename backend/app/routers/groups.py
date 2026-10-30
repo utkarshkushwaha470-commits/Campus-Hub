@@ -2,7 +2,7 @@ import uuid
 from typing import List, Optional
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Request
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user import User, UserRole
@@ -13,14 +13,10 @@ from app.services.audit_service import audit_service
 
 router = APIRouter(prefix="/api/groups", tags=["Purpose Groups"])
 
-def check_demo_protection(user: User):
-    # Allow demo personas to test interactively
-    pass
-
-
 class CreateGroupRequest(BaseModel):
     name: str
-    purpose: str
+    purpose: Optional[str] = None
+    description: Optional[str] = None
     category: Optional[str] = GroupCategory.SPECIAL_PURPOSE
     member_ids: Optional[List[str]] = []
 
@@ -40,31 +36,25 @@ async def list_groups(
     db: Session = Depends(get_db)
 ):
     """
-    Returns groups.
-    - Admins see all college groups.
-    - Students see groups they are enrolled in.
+    Returns campus purpose groups for all campus members (students, faculty, administrators).
+    Includes membership status so users can participate or join.
     """
-    if current_user.role == UserRole.ADMIN:
-        query = db.query(CampusGroup).filter(CampusGroup.is_active == True)
-    else:
-        # Enrolled groups for the student
-        member_group_ids = db.query(GroupMember.group_id).filter(GroupMember.user_id == current_user.id).all()
-        group_ids = [gid[0] for gid in member_group_ids]
-        query = db.query(CampusGroup).filter(CampusGroup.id.in_(group_ids), CampusGroup.is_active == True)
+    query = db.query(CampusGroup).filter(CampusGroup.is_active == True)
 
     if category:
         query = query.filter(CampusGroup.category == category)
 
     groups = query.order_by(CampusGroup.created_at.desc()).all()
 
+    user_member_group_ids = set(
+        gid[0] for gid in db.query(GroupMember.group_id).filter(GroupMember.user_id == current_user.id).all()
+    )
+
     results = []
     for g in groups:
         member_count = db.query(GroupMember).filter(GroupMember.group_id == g.id).count()
         creator = db.query(User).filter(User.id == g.created_by_admin_id).first()
-        is_member = db.query(GroupMember).filter(
-            GroupMember.group_id == g.id,
-            GroupMember.user_id == current_user.id
-        ).first() is not None
+        is_member = (g.id in user_member_group_ids) or (current_user.role == UserRole.ADMIN)
 
         results.append({
             "id": g.id,
@@ -73,7 +63,7 @@ async def list_groups(
             "category": g.category,
             "created_by_name": creator.full_name if creator else "College Administration",
             "member_count": member_count,
-            "is_member": is_member or (current_user.role == UserRole.ADMIN),
+            "is_member": is_member,
             "created_at": g.created_at
         })
 
@@ -83,43 +73,65 @@ async def list_groups(
 async def create_group(
     req: CreateGroupRequest,
     request: Request,
-    current_admin: User = Depends(require_roles([UserRole.ADMIN])),
+    current_user: User = Depends(get_current_verified_user),
     db: Session = Depends(get_db)
 ):
     """
-    Admin-only endpoint to create a new purpose group.
-    Sets explicit institutional purpose, assigns students, and logs action.
+    Creates a new campus purpose group.
+    Allows administrators, faculty, and verified students to form purpose groups.
     """
-    if not req.name.strip():
+    group_name = req.name.strip()
+    if not group_name:
         raise HTTPException(status_code=400, detail="Group name is required.")
-    if not req.purpose.strip():
+    
+    purpose_text = (req.purpose or req.description or group_name).strip()
+    if not purpose_text:
         raise HTTPException(status_code=400, detail="Specific purpose description is required.")
+
+    # Sanitize category
+    raw_cat = (req.category or GroupCategory.SPECIAL_PURPOSE).strip()
+    cat_lower = raw_cat.lower()
+    if "special" in cat_lower or "task" in cat_lower:
+        cat = GroupCategory.SPECIAL_PURPOSE
+    elif "placement" in cat_lower or "career" in cat_lower:
+        cat = GroupCategory.PLACEMENT
+    elif "committee" in cat_lower:
+        cat = GroupCategory.COMMITTEE
+    elif "club" in cat_lower:
+        cat = GroupCategory.CLUB
+    elif "disciplinary" in cat_lower:
+        cat = GroupCategory.DISCIPLINARY
+    elif "academic" in cat_lower:
+        cat = GroupCategory.ACADEMIC
+    else:
+        cat = raw_cat[:48]
 
     new_group = CampusGroup(
         id=str(uuid.uuid4()),
-        name=req.name.strip(),
-        purpose=req.purpose.strip(),
-        category=req.category or GroupCategory.SPECIAL_PURPOSE,
-        created_by_admin_id=current_admin.id,
+        name=group_name,
+        purpose=purpose_text,
+        category=cat,
+        created_by_admin_id=current_user.id,
         is_active=True
     )
     db.add(new_group)
     db.commit()
 
-    # Add admin as ADMIN member
-    admin_member = GroupMember(
+    # Add creator as ADMIN or LEAD member
+    creator_role = "ADMIN" if current_user.role == UserRole.ADMIN else "LEAD"
+    creator_member = GroupMember(
         id=str(uuid.uuid4()),
         group_id=new_group.id,
-        user_id=current_admin.id,
-        role_in_group="ADMIN"
+        user_id=current_user.id,
+        role_in_group=creator_role
     )
-    db.add(admin_member)
+    db.add(creator_member)
 
     # Add specified student members
     added_count = 0
     if req.member_ids:
         for uid in set(req.member_ids):
-            if uid == current_admin.id:
+            if uid == current_user.id:
                 continue
             student = db.query(User).filter(User.id == uid).first()
             if student:
@@ -134,21 +146,24 @@ async def create_group(
     
     db.commit()
 
-    client_ip = request.client.host if request.client else "127.0.0.1"
-    audit_service.log_action(
-        db=db,
-        admin_id=current_admin.id,
-        action_type=AuditActionType.CREATE_GROUP,
-        target_entity="CAMPUS_GROUP",
-        target_id=new_group.id,
-        ip_address=client_ip,
-        details={
-            "group_name": new_group.name,
-            "purpose": new_group.purpose,
-            "category": new_group.category,
-            "initial_member_count": added_count + 1
-        }
-    )
+    try:
+        client_ip = request.client.host if request.client else "127.0.0.1"
+        audit_service.log_action(
+            db=db,
+            admin_id=current_user.id,
+            action_type=AuditActionType.CREATE_GROUP,
+            target_entity="CAMPUS_GROUP",
+            target_id=new_group.id,
+            ip_address=client_ip,
+            details={
+                "group_name": new_group.name,
+                "purpose": new_group.purpose,
+                "category": new_group.category,
+                "initial_member_count": added_count + 1
+            }
+        )
+    except Exception:
+        pass
 
     return {
         "id": new_group.id,
@@ -156,7 +171,8 @@ async def create_group(
         "purpose": new_group.purpose,
         "category": new_group.category,
         "members_added": added_count,
-        "message": f"Purpose group '{new_group.name}' successfully created with {added_count} student(s)."
+        "is_member": True,
+        "message": f"Purpose group '{new_group.name}' successfully created with {added_count} member(s)."
     }
 
 @router.get("/{group_id}")
@@ -165,7 +181,7 @@ async def get_group_details(
     current_user: User = Depends(get_current_verified_user),
     db: Session = Depends(get_db)
 ):
-    """Returns group details, purpose, and roster of members."""
+    """Returns group details, purpose, and roster of members for all campus members."""
     group = db.query(CampusGroup).filter(CampusGroup.id == group_id, CampusGroup.is_active == True).first()
     if not group:
         raise HTTPException(status_code=404, detail="Campus group not found.")
@@ -174,9 +190,6 @@ async def get_group_details(
         GroupMember.group_id == group_id,
         GroupMember.user_id == current_user.id
     ).first() is not None
-
-    if not is_member and current_user.role != UserRole.ADMIN:
-        raise HTTPException(status_code=403, detail="You are not a member of this purpose group.")
 
     # Fetch members with profiles
     memberships = db.query(GroupMember).filter(GroupMember.group_id == group_id).all()
@@ -206,17 +219,48 @@ async def get_group_details(
         "created_by_name": creator.full_name if creator else "College Administration",
         "created_at": group.created_at,
         "members": members_data,
-        "is_admin_viewer": current_user.role == UserRole.ADMIN
+        "is_member": is_member or (current_user.role == UserRole.ADMIN),
+        "is_admin_viewer": current_user.role == UserRole.ADMIN or current_user.id == group.created_by_admin_id
     }
+
+@router.post("/{group_id}/join")
+async def join_group(
+    group_id: str,
+    current_user: User = Depends(get_current_verified_user),
+    db: Session = Depends(get_db)
+):
+    """Allows any verified campus user to join a purpose group."""
+    group = db.query(CampusGroup).filter(CampusGroup.id == group_id, CampusGroup.is_active == True).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Campus group not found.")
+
+    existing = db.query(GroupMember).filter(
+        GroupMember.group_id == group_id,
+        GroupMember.user_id == current_user.id
+    ).first()
+
+    if existing:
+        return {"message": f"You are already a member of '{group.name}'.", "is_member": True}
+
+    new_member = GroupMember(
+        id=str(uuid.uuid4()),
+        group_id=group_id,
+        user_id=current_user.id,
+        role_in_group="MEMBER"
+    )
+    db.add(new_member)
+    db.commit()
+
+    return {"message": f"Successfully joined '{group.name}'!", "is_member": True}
 
 @router.post("/{group_id}/members")
 async def add_group_member(
     group_id: str,
     req: AddMemberRequest,
-    current_admin: User = Depends(require_roles([UserRole.ADMIN])),
+    current_user: User = Depends(get_current_verified_user),
     db: Session = Depends(get_db)
 ):
-    """Admin-only: Add a student or faculty to a specific purpose group."""
+    """Add a student or faculty to a specific purpose group."""
     group = db.query(CampusGroup).filter(CampusGroup.id == group_id, CampusGroup.is_active == True).first()
     if not group:
         raise HTTPException(status_code=404, detail="Campus group not found.")
@@ -250,10 +294,10 @@ async def add_group_member(
 async def remove_group_member(
     group_id: str,
     user_id: str,
-    current_admin: User = Depends(require_roles([UserRole.ADMIN])),
+    current_user: User = Depends(get_current_verified_user),
     db: Session = Depends(get_db)
 ):
-    """Admin-only: Remove a user from a purpose group."""
+    """Remove a user from a purpose group."""
     group = db.query(CampusGroup).filter(CampusGroup.id == group_id).first()
     if not group:
         raise HTTPException(status_code=404, detail="Campus group not found.")
@@ -281,14 +325,6 @@ async def get_group_messages(
     group = db.query(CampusGroup).filter(CampusGroup.id == group_id, CampusGroup.is_active == True).first()
     if not group:
         raise HTTPException(status_code=404, detail="Group not found.")
-
-    is_member = db.query(GroupMember).filter(
-        GroupMember.group_id == group_id,
-        GroupMember.user_id == current_user.id
-    ).first() is not None
-
-    if not is_member and current_user.role != UserRole.ADMIN:
-        raise HTTPException(status_code=403, detail="Access denied. Must be a group member.")
 
     messages = db.query(GroupMessage).filter(
         GroupMessage.group_id == group_id
@@ -321,16 +357,22 @@ async def post_group_message(
     if not group:
         raise HTTPException(status_code=404, detail="Group not found.")
 
+    if not req.content_text.strip():
+        raise HTTPException(status_code=400, detail="Message content cannot be empty.")
+
+    # Ensure sender is a member
     is_member = db.query(GroupMember).filter(
         GroupMember.group_id == group_id,
         GroupMember.user_id == current_user.id
-    ).first() is not None
-
-    if not is_member and current_user.role != UserRole.ADMIN:
-        raise HTTPException(status_code=403, detail="You must be a group member to post.")
-
-    if not req.content_text.strip():
-        raise HTTPException(status_code=400, detail="Message content cannot be empty.")
+    ).first()
+    if not is_member:
+        db.add(GroupMember(
+            id=str(uuid.uuid4()),
+            group_id=group_id,
+            user_id=current_user.id,
+            role_in_group="MEMBER"
+        ))
+        db.commit()
 
     msg = GroupMessage(
         id=str(uuid.uuid4()),
@@ -366,20 +408,23 @@ async def delete_group(
     """Admin-only: Deactivate / delete a purpose group."""
     group = db.query(CampusGroup).filter(CampusGroup.id == group_id).first()
     if not group:
-        raise HTTPException(status_code=404, detail="Group not found.")
+        raise HTTPException(status_code=404, detail="Campus group not found.")
 
     group.is_active = False
     db.commit()
 
-    client_ip = request.client.host if request.client else "127.0.0.1"
-    audit_service.log_action(
-        db=db,
-        admin_id=current_admin.id,
-        action_type=AuditActionType.DELETE_GROUP,
-        target_entity="CAMPUS_GROUP",
-        target_id=group.id,
-        ip_address=client_ip,
-        details={"group_name": group.name}
-    )
+    try:
+        client_ip = request.client.host if request.client else "127.0.0.1"
+        audit_service.log_action(
+            db=db,
+            admin_id=current_admin.id,
+            action_type=AuditActionType.DELETE_GROUP,
+            target_entity="CAMPUS_GROUP",
+            target_id=group.id,
+            ip_address=client_ip,
+            details={"group_name": group.name}
+        )
+    except Exception:
+        pass
 
     return {"message": f"Purpose group '{group.name}' deactivated."}

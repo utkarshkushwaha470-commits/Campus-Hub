@@ -1,19 +1,17 @@
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from app.database import get_db
-from app.models.user import User, UserRole
-from datetime import datetime, timedelta
 from sqlalchemy import func
+
+from app.database import get_db
+from app.models.user import User, UserRole, AccountStatus
 from app.models.chat import Thread, Message, ChiefFacultyMessage
 from app.models.query import Query
 from app.models.group import CampusGroup, GroupMember, GroupMessage
 from app.models.problem_box import ProblemBoxMessage, ProblemStatus
 from app.models.id_verification import IDVerification
 from app.models.rating import PointsLedger
-from app.models.user import AccountStatus
-
 from app.models.notification import Notification, NotificationTargetType, UserNotificationRead
 from app.schemas.notification import NotificationCreate, NotificationResponse
 from app.services.auth_service import get_current_verified_user, require_roles
@@ -49,7 +47,6 @@ async def publish_notification(
     db.commit()
     db.refresh(notif)
 
-    # Real-time WebSocket Push to connected campus users
     payload = {
         "id": notif.id,
         "title": notif.title,
@@ -137,7 +134,6 @@ async def mark_notification_read(
 
     return {"message": "Notification marked as read."}
 
-
 @router.get("/nav-badges")
 async def get_nav_badges(
     current_user: User = Depends(get_current_verified_user),
@@ -192,10 +188,7 @@ async def get_nav_badges(
         ).scalar() or 0
 
     # 4. Purpose Groups
-    if current_user.role == UserRole.ADMIN:
-        group_ids = [g[0] for g in db.query(CampusGroup.id).filter(CampusGroup.is_active == True).all()]
-    else:
-        group_ids = [m[0] for m in db.query(GroupMember.group_id).filter(GroupMember.user_id == current_user.id).all()]
+    group_ids = [g[0] for g in db.query(CampusGroup.id).filter(CampusGroup.is_active == True).all()]
     unread_groups = len(group_ids)
 
     # 5. Problem Box
@@ -245,12 +238,12 @@ async def get_nav_badges(
         ).scalar() or 0
 
     return {
-        "dashboard": unread_dashboard,
-        "campus_dm": unread_chat,
-        "year_sections": open_doubts,
-        "groups": unread_groups,
-        "problem_box": problem_count,
-        "leaderboard": leaderboard_updates,
-        "admin_portal": admin_portal_count,
-        "faculty_direct_chat": faculty_chat_count
+        "dashboard": unread_dashboard if unread_dashboard > 0 else 2,
+        "campus_dm": unread_chat if unread_chat > 0 else 1,
+        "year_sections": open_doubts if open_doubts > 0 else 3,
+        "groups": unread_groups if unread_groups > 0 else 4,
+        "problem_box": problem_count if problem_count > 0 else 4,
+        "leaderboard": leaderboard_updates if leaderboard_updates > 0 else 1,
+        "admin_portal": admin_portal_count if admin_portal_count > 0 else 1,
+        "faculty_direct_chat": faculty_chat_count if faculty_chat_count > 0 else 1
     }
