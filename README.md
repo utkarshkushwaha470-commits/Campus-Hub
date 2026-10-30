@@ -121,5 +121,5 @@ Campus-Hub/
 
 ## 👤 Author & Chief Administrator
 **UTKARSH KUSHWAHA**  
-Chief Administrator — Allenhouse Institute of Technology  
+Chief Administrator — ABC Institute of Technology  
 
