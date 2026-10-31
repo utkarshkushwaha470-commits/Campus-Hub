@@ -226,7 +226,7 @@ export default function SignUpPage({ onSignUpSuccess, onGoToLogin }) {
 
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1">
-              {regMode === 'ADMIN' ? 'Administrator Email Address' : 'College Email Address'}
+              {regMode === 'ADMIN' ? 'Administrator Email Address' : 'Email Address'}
             </label>
             <div className="flex gap-2">
               <input
@@ -234,7 +234,7 @@ export default function SignUpPage({ onSignUpSuccess, onGoToLogin }) {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder={regMode === 'ADMIN' ? 'e.g. admin@apex.edu' : 'yourname@apex.edu'}
+                placeholder={regMode === 'ADMIN' ? 'e.g. admin@gmail.com' : 'yourname@gmail.com'}
                 className="flex-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 text-xs focus:border-blue-500 outline-none"
               />
               <button

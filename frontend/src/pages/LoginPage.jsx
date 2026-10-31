@@ -837,13 +837,13 @@ export default function LoginPage({ onLoginSuccess, onGoToSignUp }) {
           /* ================= STUDENT LOGIN FORM ================= */
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">College Email</label>
+              <label className="block text-xs font-semibold text-slate-300 mb-1.5">Email Address</label>
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter registered college email"
+                placeholder="Enter registered email address"
                 className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               />
             </div>
