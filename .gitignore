@@ -46,7 +46,8 @@ backend/storage/uploads/*
 frontend/node_modules/
 frontend/.npm
 frontend/.pnpm-store/
-frontend/dist/
+# frontend/dist/ is included so anyone downloading from GitHub can run instantly without installing Node.js
+# frontend/dist/
 frontend/.vite/
 
 # Editor / OS

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { api, setAuthToken, setCurrentUser } from '../services/api';
+import { api, setAuthToken, setCurrentUser, setRemoteServer, getRemoteServer, getApiBase } from '../services/api';
 
 export default function LoginPage({ onLoginSuccess, onGoToSignUp }) {
   // Option: 'STUDENT' or 'ADMIN'
@@ -36,6 +36,29 @@ export default function LoginPage({ onLoginSuccess, onGoToSignUp }) {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // Server host connection state (for GitHub repository downloaders)
+  const [showServerModal, setShowServerModal] = useState(false);
+  const [customServerInput, setCustomServerInput] = useState(getRemoteServer() || '');
+  const [serverSavedMsg, setServerSavedMsg] = useState(null);
+
+  const handleSaveCustomServer = (e) => {
+    e.preventDefault();
+    setRemoteServer(customServerInput.trim());
+    setServerSavedMsg('Connected! Re-syncing with host server...');
+    setTimeout(() => {
+      window.location.reload();
+    }, 600);
+  };
+
+  const handleResetServer = () => {
+    setRemoteServer('');
+    setCustomServerInput('');
+    setServerSavedMsg('Reset to local host.');
+    setTimeout(() => {
+      window.location.reload();
+    }, 600);
+  };
 
   const handleSendAdminOtp = async () => {
     if (!email.trim()) {
@@ -1065,6 +1088,86 @@ export default function LoginPage({ onLoginSuccess, onGoToSignUp }) {
             </button>
           </p>
         </div>
+
+        {/* Remote Host Server Status (Connect to Chief Admin Laptop) */}
+        <div className="mt-5 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400 px-1">
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>Host: <strong className="text-slate-200">{getRemoteServer() ? 'Utkarsh\'s Live Server' : 'Chief Admin Central Node'}</strong></span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowServerModal(true)}
+            className="text-indigo-400 hover:text-indigo-300 underline font-medium cursor-pointer"
+          >
+            {getRemoteServer() ? 'Change Server' : 'Connect to Laptop'}
+          </button>
+        </div>
+
+        {/* Modal to configure Chief Administrator server URL */}
+        {showServerModal && (
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-slate-900 border border-indigo-500/40 rounded-2xl p-5 max-w-md w-full shadow-2xl relative">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🌐</span>
+                  <h3 className="text-sm font-bold text-white">Connect to Chief Administrator\'s Server</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowServerModal(false)}
+                  className="text-slate-400 hover:text-white text-lg p-1"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <p className="text-xs text-slate-300 mb-3 leading-relaxed">
+                Downloaded this repository from GitHub? Enter Chief Administrator <strong>UTKARSH KUSHWAHA\'s</strong> live public tunnel link or local Wi-Fi IP to send your logins, chats, and problem reports directly to his laptop.
+              </p>
+
+              {serverSavedMsg && (
+                <div className="p-2.5 rounded-lg bg-emerald-950/60 border border-emerald-600/50 text-emerald-300 text-xs mb-3 font-semibold">
+                  {serverSavedMsg}
+                </div>
+              )}
+
+              <form onSubmit={handleSaveCustomServer} className="space-y-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                    Chief Administrator Live Link or Local IP:
+                  </label>
+                  <input
+                    type="text"
+                    value={customServerInput}
+                    onChange={(e) => setCustomServerInput(e.target.value)}
+                    placeholder="e.g. https://xyz.trycloudflare.com or 192.168.31.46:8000"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-indigo-500 font-mono"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Ask Chief Admin Utkarsh for his current live link from Share_Live_Worldwide.bat
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleResetServer}
+                    className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+                  >
+                    Reset to Local
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/30"
+                  >
+                    Save & Connect
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

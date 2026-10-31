@@ -1,4 +1,68 @@
-const API_BASE = '/api';
+export const getApiBase = () => {
+  // 1. Check if URL parameter specifies host (e.g. ?server=https://xyz.trycloudflare.com or ?host=192.168.31.46)
+  if (typeof window !== 'undefined') {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const serverParam = params.get('server') || params.get('host');
+      if (serverParam && serverParam.trim()) {
+        const clean = serverParam.trim().replace(/\/$/, '');
+        localStorage.setItem('cc_remote_server', clean);
+      }
+    } catch (e) {}
+  }
+
+  // 2. Check localStorage for persistent remote host
+  if (typeof localStorage !== 'undefined') {
+    const saved = localStorage.getItem('cc_remote_server');
+    if (saved && saved.trim()) {
+      let clean = saved.trim().replace(/\/$/, '');
+      if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
+        clean = `http://${clean}`;
+      }
+      return clean.endsWith('/api') ? clean : `${clean}/api`;
+    }
+  }
+
+  // 3. Check Vite environment variable
+  const envUrl = import.meta.env?.VITE_API_BASE_URL || import.meta.env?.VITE_API_URL;
+  if (envUrl && envUrl.trim()) {
+    const clean = envUrl.trim().replace(/\/$/, '');
+    return clean.endsWith('/api') ? clean : `${clean}/api`;
+  }
+
+  // 4. Default to same-origin relative /api
+  return '/api';
+};
+
+export const setRemoteServer = (url) => {
+  if (!url || !url.trim()) {
+    localStorage.removeItem('cc_remote_server');
+  } else {
+    let clean = url.trim().replace(/\/$/, '');
+    if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
+      clean = `http://${clean}`;
+    }
+    localStorage.setItem('cc_remote_server', clean);
+  }
+};
+
+export const getRemoteServer = () => {
+  return typeof localStorage !== 'undefined' ? localStorage.getItem('cc_remote_server') || '' : '';
+};
+
+export const getWsBase = () => {
+  const apiBase = getApiBase();
+  if (apiBase.startsWith('http://')) {
+    return apiBase.replace('http://', 'ws://').replace(/\/api$/, '');
+  } else if (apiBase.startsWith('https://')) {
+    return apiBase.replace('https://', 'wss://').replace(/\/api$/, '');
+  }
+  if (typeof window !== 'undefined') {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${protocol}//${window.location.host}`;
+  }
+  return 'ws://localhost:8000';
+};
 
 export const getAuthToken = () => localStorage.getItem('cc_token');
 export const setAuthToken = (token) => localStorage.setItem('cc_token', token);
@@ -24,7 +88,8 @@ async function request(endpoint, options = {}) {
     headers['Content-Type'] = 'application/json';
   }
 
-  const res = await fetch(`${API_BASE}${endpoint}`, {
+  const baseUrl = getApiBase();
+  const res = await fetch(`${baseUrl}${endpoint}`, {
     ...options,
     headers
   });

@@ -1,0 +1,18 @@
+{
+  "name": "Campus Hub - Allenhouse Institute of Technology",
+  "short_name": "Campus Hub",
+  "description": "ID-verified peer doubt resolution, year sections, anonymous Problem Box, and instant college alerts.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0F172A",
+  "theme_color": "#2563EB",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

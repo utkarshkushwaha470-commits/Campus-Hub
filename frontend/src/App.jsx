@@ -14,7 +14,7 @@ import CampusGroupsPage from './pages/CampusGroupsPage';
 import SettingsPage from './pages/SettingsPage';
 import FacultyChiefChatPage from './pages/FacultyChiefChatPage';
 import ChiefFacultyChatPage from './pages/ChiefFacultyChatPage';
-import { api, getCurrentUser, removeAuthToken, removeCurrentUser } from './services/api';
+import { api, getCurrentUser, removeAuthToken, removeCurrentUser, getWsBase } from './services/api';
 
 // Web Audio API Synthesizer Chime (Zero External Dependencies, WhatsApp/Telegram feel)
 function playNotificationChime() {
@@ -86,8 +86,7 @@ export default function App() {
 
     let socket;
     try {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/ws/live/${user.id}`;
+      const wsUrl = `${getWsBase()}/ws/live/${user.id}`;
       socket = new WebSocket(wsUrl);
 
       socket.onmessage = (event) => {
