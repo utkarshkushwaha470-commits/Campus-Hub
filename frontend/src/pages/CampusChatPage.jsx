@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { api } from '../services/api';
+import { api, getWsBase } from '../services/api';
 
 const EMOJI_LIST = ['❤️', '😂', '🔥', '👍', '😮', '👏'];
 
@@ -20,6 +20,7 @@ export default function CampusChatPage({ user }) {
   const [attachPreview, setAttachPreview] = useState(null);
   const [sending, setSending] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [animatingHeartMsgId, setAnimatingHeartMsgId] = useState(null);
 
   // New Chat Modal state
   const [showNewChatModal, setShowNewChatModal] = useState(false);
@@ -38,7 +39,6 @@ export default function CampusChatPage({ user }) {
     if (isAdmin) {
       loadAdminThreads();
     }
-    // WhatsApp-style active background synchronization
     const poller = setInterval(() => {
       loadInbox();
     }, 2500);
@@ -51,52 +51,54 @@ export default function CampusChatPage({ user }) {
 
     loadThreadMessages(activeThreadId);
 
-    // 4-second polling fallback for serverless cloud environments
     const pollInterval = setInterval(() => {
       loadThreadMessages(activeThreadId);
       loadInbox();
     }, 2000);
 
-    // WebSocket connection to thread room
     const wsUrl = `${getWsBase()}/ws/chat/${activeThreadId}`;
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
+    let ws = null;
+    try {
+      ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
 
-    ws.onmessage = (event) => {
-      try {
-        const payload = JSON.parse(event.data);
-        if (payload.type === 'NEW_MESSAGE') {
-          setThreadData((prev) => {
-            if (!prev) return prev;
-            // Prevent duplicate message
-            if (prev.messages.some((m) => m.id === payload.message.id)) return prev;
-            return {
-              ...prev,
-              messages: [...prev.messages, {
-                ...payload.message,
-                is_me: payload.message.sender_id === user.id
-              }]
-            };
-          });
-          scrollToBottom();
-          loadInbox();
-        } else if (payload.type === 'REACTION_UPDATE') {
-          setThreadData((prev) => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              messages: prev.messages.map((m) =>
-                m.id === payload.data.message_id
-                  ? { ...m, reactions: payload.data.reactions }
-                  : m
-              )
-            };
-          });
+      ws.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          if (payload.type === 'NEW_MESSAGE') {
+            setThreadData((prev) => {
+              if (!prev) return prev;
+              if (prev.messages && prev.messages.some((m) => m.id === payload.message.id)) return prev;
+              return {
+                ...prev,
+                messages: [...(prev.messages || []), {
+                  ...payload.message,
+                  is_me: payload.message.sender_id === user.id
+                }]
+              };
+            });
+            scrollToBottom();
+            loadInbox();
+          } else if (payload.type === 'REACTION_UPDATE') {
+            setThreadData((prev) => {
+              if (!prev || !prev.messages) return prev;
+              return {
+                ...prev,
+                messages: prev.messages.map((m) =>
+                  m.id === payload.data.message_id
+                    ? { ...m, reactions: payload.data.reactions }
+                    : m
+                )
+              };
+            });
+          }
+        } catch (err) {
+          console.error('WS parse error:', err);
         }
-      } catch (err) {
-        console.error('WS parse error:', err);
-      }
-    };
+      };
+    } catch (e) {
+      console.warn('WebSocket connection fallback to polling:', e);
+    }
 
     return () => {
       if (ws) ws.close();
@@ -113,7 +115,7 @@ export default function CampusChatPage({ user }) {
   const loadInbox = async () => {
     try {
       const data = await api.getChatInbox();
-      setInbox(data);
+      setInbox(data || []);
       if (!activeThreadId && data && data.length > 0) {
         setActiveThreadId(data[0].thread_id);
       }
@@ -125,7 +127,7 @@ export default function CampusChatPage({ user }) {
   const loadAdminThreads = async () => {
     try {
       const data = await api.getAdminAllChatThreads();
-      setAdminThreads(data);
+      setAdminThreads(data || []);
     } catch (err) {
       console.error('Error loading admin threads:', err);
     }
@@ -181,7 +183,7 @@ export default function CampusChatPage({ user }) {
   };
 
   const handleSendMessage = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     if (!inputText.trim() && !attachFile) return;
     if (!activeThreadId) return;
 
@@ -196,8 +198,27 @@ export default function CampusChatPage({ user }) {
       setAttachFile(null);
       setAttachPreview(null);
       scrollToBottom();
+      loadThreadMessages(activeThreadId);
+      loadInbox();
     } catch (err) {
       alert(err.message || 'Failed to send message');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleSendHeart = async () => {
+    if (!activeThreadId) return;
+    setSending(true);
+    try {
+      const fd = new FormData();
+      fd.append('content_text', '❤️');
+      await api.sendChatMessage(activeThreadId, fd);
+      scrollToBottom();
+      loadThreadMessages(activeThreadId);
+      loadInbox();
+    } catch (err) {
+      console.error('Failed to send heart:', err);
     } finally {
       setSending(false);
     }
@@ -206,9 +227,19 @@ export default function CampusChatPage({ user }) {
   const handleToggleReaction = async (messageId, emoji) => {
     try {
       await api.reactToMessage(messageId, emoji);
+      loadThreadMessages(activeThreadId);
     } catch (err) {
       console.error('Reaction error:', err);
     }
+  };
+
+  // Instagram-style double tap to like
+  const handleDoubleClickMessage = (m) => {
+    setAnimatingHeartMsgId(m.id);
+    handleToggleReaction(m.id, '❤️');
+    setTimeout(() => {
+      setAnimatingHeartMsgId(null);
+    }, 900);
   };
 
   const handleAdminDeleteMessage = async (messageId) => {
@@ -226,7 +257,7 @@ export default function CampusChatPage({ user }) {
     setSearching(true);
     try {
       const results = await api.searchCampusUsers(val);
-      setSearchResults(results);
+      setSearchResults(results || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -247,45 +278,50 @@ export default function CampusChatPage({ user }) {
     }
   };
 
-  const filteredInbox = inbox.filter((item) =>
-    item.peer.full_name.toLowerCase().includes(filterQuery.toLowerCase()) ||
-    item.last_message.toLowerCase().includes(filterQuery.toLowerCase())
+  const filteredInbox = (inbox || []).filter((item) =>
+    (item.peer?.full_name || '').toLowerCase().includes(filterQuery.toLowerCase()) ||
+    (item.last_message || '').toLowerCase().includes(filterQuery.toLowerCase())
   );
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-6">
-      {/* Instagram-Style Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-5">
+    <div className="max-w-6xl mx-auto px-4 py-4 sm:py-6">
+      {/* Top Banner: Ask_Up Instagram Experience */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
         <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-2xl font-extrabold text-white tracking-tight flex items-center gap-2">
-              <span>AskUp Direct Messages</span>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold shadow-sm">
-                Insta-Style
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
+              <span className="p-1.5 rounded-xl bg-gradient-to-tr from-[#833ab4] via-[#fd1d1d] to-[#fcb045] text-white shadow-md shadow-pink-500/20 inline-flex items-center justify-center">
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2L2 22l10-3 10 3L12 2zm0 3.8L18.8 18l-6.8-2-6.8 2L12 5.8z" />
+                </svg>
+              </span>
+              <span>Ask_Up</span>
+              <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-gradient-to-r from-[#833ab4] via-[#fd1d1d] to-[#fcb045] text-white font-black shadow-sm">
+                Instagram Direct
               </span>
             </h2>
           </div>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Real-time peer chat with students, seniors, & faculty • Image sharing & reactions
+          <p className="text-xs text-slate-400 mt-1">
+            Real-time peer chat with students & faculty • Double-tap to heart ❤️ • Photos & live location
           </p>
         </div>
 
         {/* Admin Mode Switch (If Admin) */}
         {isAdmin && (
-          <div className="flex items-center gap-2 bg-slate-900 p-1.5 rounded-xl border border-amber-800/60 shadow-md">
+          <div className="flex items-center gap-2 bg-slate-900 p-1.5 rounded-2xl border border-amber-800/60 shadow-md">
             <span className="text-[11px] font-bold text-amber-400 px-2 flex items-center gap-1">
-              <span>👑 Admin Super-Access:</span>
+              <span>👑 Super-Admin:</span>
             </span>
             <button
               onClick={() => {
                 setAdminViewAll(false);
                 setActiveThreadId(null);
               }}
-              className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
+              className={`px-3 py-1 text-xs font-bold rounded-xl transition-all ${
                 !adminViewAll ? 'bg-amber-500 text-slate-950 shadow-sm' : 'text-slate-400 hover:text-white'
               }`}
             >
-              My DMs
+              My Ask_Up DMs
             </button>
             <button
               onClick={() => {
@@ -293,7 +329,7 @@ export default function CampusChatPage({ user }) {
                 setActiveThreadId(null);
                 loadAdminThreads();
               }}
-              className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
+              className={`px-3 py-1 text-xs font-bold rounded-xl transition-all ${
                 adminViewAll ? 'bg-amber-500 text-slate-950 shadow-sm' : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -303,22 +339,27 @@ export default function CampusChatPage({ user }) {
         )}
       </div>
 
-      {/* Main Instagram Layout: Sidebar + Chat Feed */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl h-[78vh] flex flex-col md:flex-row">
+      {/* Main Instagram Layout: Sidebar + Active Chat Stream */}
+      <div className="bg-[#121212] border border-[#262626] rounded-3xl overflow-hidden shadow-2xl h-[78vh] flex flex-col md:flex-row">
         
         {/* ==================================================================== */}
         {/* LEFT COLUMN: CONVERSATION LIST / INBOX */}
         {/* ==================================================================== */}
-        <div className={`w-full md:w-80 lg:w-96 border-r border-slate-800 flex flex-col bg-slate-950/70 ${
+        <div className={`w-full md:w-80 lg:w-96 border-r border-[#262626] flex flex-col bg-[#141414] ${
           activeThreadId ? 'hidden md:flex' : 'flex'
         }`}>
           {/* Top Bar with Profile & New Message Icon */}
-          <div className="p-4 border-b border-slate-800 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="font-extrabold text-white text-base">
-                {adminViewAll ? 'All Conversations' : user.full_name}
+          <div className="p-4 border-b border-[#262626] flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="p-[2px] rounded-full bg-gradient-to-tr from-[#f09433] via-[#dc2743] to-[#bc1888]">
+                <div className="w-8 h-8 rounded-full bg-slate-900 text-white font-black text-xs flex items-center justify-center border border-black">
+                  {user.full_name?.charAt(0) || 'U'}
+                </div>
+              </div>
+              <span className="font-black text-white text-sm tracking-tight">
+                {adminViewAll ? 'All Campus Threads' : user.full_name}
               </span>
-              <span className="text-[10px] text-blue-400 font-bold bg-blue-950 px-2 py-0.5 rounded-full border border-blue-900">
+              <span className="text-[10px] text-blue-400 font-bold bg-blue-950/80 px-2 py-0.5 rounded-full border border-blue-900/60">
                 {user.role}
               </span>
             </div>
@@ -328,10 +369,10 @@ export default function CampusChatPage({ user }) {
                   setShowNewChatModal(true);
                   handleSearchUsers('');
                 }}
-                className="p-2 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 transition-all"
+                className="p-2 rounded-full hover:bg-slate-800 text-slate-300 hover:text-white transition-all"
                 title="New Direct Message"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                 </svg>
               </button>
@@ -339,25 +380,24 @@ export default function CampusChatPage({ user }) {
           </div>
 
           {/* Quick Search */}
-          <div className="p-3 border-b border-slate-800/80">
+          <div className="p-3 border-b border-[#262626]">
             <div className="relative">
               <input
                 type="text"
-                placeholder={adminViewAll ? "Search campus conversations..." : "Search direct messages..."}
+                placeholder={adminViewAll ? "Search campus conversations..." : "Search Ask_Up messages..."}
                 value={filterQuery}
                 onChange={(e) => setFilterQuery(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                className="w-full pl-8 pr-3 py-1.5 rounded-full bg-[#242424] border border-transparent text-xs text-white placeholder-slate-400 focus:outline-none focus:border-pink-500"
               />
-              <svg className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </div>
           </div>
 
           {/* Conversations Scroll Area */}
-          <div className="flex-1 overflow-y-auto divide-y divide-slate-900/80">
+          <div className="flex-1 overflow-y-auto divide-y divide-[#1e1e1e]">
             {adminViewAll ? (
-              // ADMIN SUPER-ACCESS: ALL CAMPUS THREADS
               adminThreads.length === 0 ? (
                 <div className="p-8 text-center text-xs text-slate-500">No active student chats found.</div>
               ) : (
@@ -367,8 +407,8 @@ export default function CampusChatPage({ user }) {
                     onClick={() => setActiveThreadId(at.thread_id)}
                     className={`p-3.5 cursor-pointer transition-all flex items-start gap-3 ${
                       activeThreadId === at.thread_id
-                        ? 'bg-amber-950/30 border-l-4 border-amber-500'
-                        : 'hover:bg-slate-900/60'
+                        ? 'bg-amber-950/40 border-l-4 border-amber-500'
+                        : 'hover:bg-[#1f1f1f]'
                     }`}
                   >
                     <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-amber-600 to-orange-500 flex items-center justify-center text-white font-extrabold text-xs shadow-md flex-shrink-0">
@@ -377,7 +417,7 @@ export default function CampusChatPage({ user }) {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-0.5">
                         <span className="font-bold text-xs text-white truncate">
-                          {at.participant_1.name} ↔ {at.participant_2.name}
+                          {at.participant_1?.name || 'User 1'} ↔ {at.participant_2?.name || 'User 2'}
                         </span>
                         <span className="text-[10px] text-amber-400 font-mono">
                           {at.message_count} msgs
@@ -387,28 +427,30 @@ export default function CampusChatPage({ user }) {
                         {at.last_message}
                       </div>
                       <div className="flex items-center gap-1.5 mt-1 text-[10px] text-slate-500">
-                        <span>{at.participant_1.role} (Yr {at.participant_1.year || '-'})</span>
+                        <span>{at.participant_1?.role} (Yr {at.participant_1?.year || '-'})</span>
                         <span>•</span>
-                        <span>{at.participant_2.role} (Yr {at.participant_2.year || '-'})</span>
+                        <span>{at.participant_2?.role} (Yr {at.participant_2?.year || '-'})</span>
                       </div>
                     </div>
                   </div>
                 ))
               )
             ) : (
-              // REGULAR USER INBOX
               filteredInbox.length === 0 ? (
                 <div className="p-8 text-center">
-                  <div className="w-12 h-12 mx-auto rounded-full bg-slate-900 text-slate-500 flex items-center justify-center mb-2">
-                    💬
+                  <div className="w-12 h-12 mx-auto rounded-full bg-[#202020] text-pink-400 flex items-center justify-center mb-2">
+                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2L2 22l10-3 10 3L12 2zm0 3.8L18.8 18l-6.8-2-6.8 2L12 5.8z" />
+                    </svg>
                   </div>
-                  <p className="text-xs text-slate-400 font-medium">No direct messages yet</p>
+                  <p className="text-xs text-slate-300 font-bold">No direct messages yet</p>
+                  <p className="text-[11px] text-slate-500 mt-1">Say hello to college peers or faculty</p>
                   <button
                     onClick={() => {
                       setShowNewChatModal(true);
                       handleSearchUsers('');
                     }}
-                    className="mt-3 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs"
+                    className="mt-3 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-[#833ab4] via-[#fd1d1d] to-[#fcb045] text-white font-black text-xs shadow-md"
                   >
                     Start a New Chat
                   </button>
@@ -418,57 +460,47 @@ export default function CampusChatPage({ user }) {
                   <div
                     key={item.thread_id}
                     onClick={() => setActiveThreadId(item.thread_id)}
-                    className={`p-3.5 cursor-pointer transition-all flex items-center gap-3 border-b border-slate-800/40 ${
+                    className={`p-3.5 cursor-pointer transition-all flex items-center gap-3 ${
                       activeThreadId === item.thread_id
-                        ? 'bg-indigo-950/50 border-l-4 border-indigo-500'
+                        ? 'bg-[#222222] border-l-4 border-pink-500'
                         : item.unread_count > 0
-                        ? 'bg-emerald-950/20 hover:bg-slate-800/60'
-                        : 'hover:bg-slate-900/60'
+                        ? 'bg-pink-950/20 hover:bg-[#1e1e1e]'
+                        : 'hover:bg-[#1a1a1a]'
                     }`}
                   >
-                    {/* Peer Avatar with Gradient & WhatsApp/Telegram style Unread Indicator */}
+                    {/* Peer Avatar with Instagram Story Ring */}
                     <div className="relative flex-shrink-0">
-                      <div className={`w-11 h-11 rounded-full flex items-center justify-center text-white font-black text-sm shadow-md transition-all ${
-                        item.unread_count > 0
-                          ? 'bg-gradient-to-tr from-emerald-500 to-teal-500 ring-2 ring-emerald-400/80 shadow-emerald-500/20'
-                          : 'bg-gradient-to-tr from-blue-600 to-indigo-600'
-                      }`}>
-                        {item.peer.avatar_char}
+                      <div className="p-[2px] rounded-full bg-gradient-to-tr from-[#f09433] via-[#dc2743] to-[#bc1888]">
+                        <div className="w-11 h-11 rounded-full bg-slate-900 flex items-center justify-center text-white font-black text-sm border-2 border-black">
+                          {item.peer?.avatar_char || item.peer?.full_name?.charAt(0) || '👤'}
+                        </div>
                       </div>
-                      {item.unread_count > 0 ? (
-                        <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 shadow-sm shadow-emerald-500"></span>
-                        </span>
-                      ) : (
-                        <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-slate-950" />
-                      )}
+                      <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-black" />
                     </div>
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-0.5">
-                        <span className={`text-xs truncate flex items-center gap-1.5 ${
+                        <span className={`text-xs truncate flex items-center gap-1 ${
                           item.unread_count > 0 ? 'font-black text-white' : 'font-bold text-slate-200'
                         }`}>
-                          {item.peer.full_name}
-                          {item.peer.locked_year && (
-                            <span className="text-[10px] text-blue-300 font-medium bg-blue-950 px-1 rounded">
-                              Yr {item.peer.locked_year}
+                          {item.peer?.full_name || 'Campus Peer'}
+                          <span className="text-blue-400 text-[10px]" title="Verified Student">✓</span>
+                          {item.peer?.locked_year && (
+                            <span className="text-[10px] text-slate-400 font-normal">
+                              • Yr {item.peer.locked_year}
                             </span>
                           )}
                         </span>
                         {item.unread_count > 0 && (
-                          <div className="flex items-center gap-1">
-                            <span className="px-1.5 py-0.2 rounded-full bg-emerald-500 text-slate-950 text-[10px] font-black min-w-[18px] text-center shadow-md shadow-emerald-500/30">
-                              {item.unread_count}
-                            </span>
-                          </div>
+                          <span className="px-1.5 py-0.2 rounded-full bg-gradient-to-r from-[#833ab4] to-[#fd1d1d] text-white text-[10px] font-black min-w-[18px] text-center shadow-md">
+                            {item.unread_count}
+                          </span>
                         )}
                       </div>
                       <p className={`text-[11px] truncate ${
-                        item.unread_count > 0 ? 'text-emerald-300 font-bold' : 'text-slate-400'
+                        item.unread_count > 0 ? 'text-pink-300 font-bold' : 'text-slate-400'
                       }`}>
-                        {item.last_message_has_attachment ? '📷 Photo' : item.last_message}
+                        {item.last_message_has_attachment ? '📷 Photo' : (item.last_message || 'Started conversation')}
                       </p>
                     </div>
                   </div>
@@ -481,34 +513,34 @@ export default function CampusChatPage({ user }) {
         {/* ==================================================================== */}
         {/* RIGHT COLUMN: ACTIVE INSTAGRAM CHAT STREAM */}
         {/* ==================================================================== */}
-        <div className={`flex-1 flex flex-col bg-slate-900/60 ${
+        <div className={`flex-1 flex flex-col bg-[#0e0e0e] ${
           !activeThreadId ? 'hidden md:flex' : 'flex'
         }`}>
           {!activeThreadId ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-pink-500/20 to-purple-600/20 border border-purple-500/30 flex items-center justify-center text-purple-300 mb-4">
-                <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-[#833ab4]/20 via-[#fd1d1d]/20 to-[#fcb045]/20 border border-pink-500/30 flex items-center justify-center text-pink-400 mb-4 shadow-xl">
+                <svg className="w-12 h-12" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2L2 22l10-3 10 3L12 2zm0 3.8L18.8 18l-6.8-2-6.8 2L12 5.8z" />
                 </svg>
               </div>
-              <h3 className="text-lg font-bold text-white">Your Campus Messages</h3>
+              <h3 className="text-xl font-black text-white">Your Ask_Up Messages</h3>
               <p className="text-xs text-slate-400 mt-1 max-w-sm">
-                Send private messages, academic questions, and photo solutions to any peer or faculty member.
+                Send private Instagram-style messages, academic questions, and live locations to any peer or faculty member.
               </p>
               <button
                 onClick={() => {
                   setShowNewChatModal(true);
                   handleSearchUsers('');
                 }}
-                className="mt-4 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-blue-500/20"
+                className="mt-5 px-5 py-2 rounded-full bg-gradient-to-r from-[#833ab4] via-[#fd1d1d] to-[#fcb045] text-white font-black text-xs shadow-lg shadow-pink-500/20 hover:scale-105 transition-all"
               >
                 Send Message
               </button>
             </div>
           ) : (
             <>
-              {/* Chat Header */}
-              <div className="p-3.5 px-5 border-b border-slate-800 bg-slate-950/80 backdrop-blur flex items-center justify-between">
+              {/* Instagram Direct Header */}
+              <div className="p-3.5 px-5 border-b border-[#262626] bg-[#141414] flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   {/* Mobile Back Button */}
                   <button
@@ -518,51 +550,72 @@ export default function CampusChatPage({ user }) {
                     ←
                   </button>
 
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center text-white font-black text-sm shadow-md">
-                    {threadData?.peer?.avatar_char || '👥'}
+                  <div className="p-[2px] rounded-full bg-gradient-to-tr from-[#f09433] via-[#dc2743] to-[#bc1888]">
+                    <div className="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center text-white font-black text-sm border-2 border-black">
+                      {threadData?.peer?.avatar_char || threadData?.peer?.full_name?.charAt(0) || '👤'}
+                    </div>
                   </div>
 
                   <div>
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-extrabold text-white text-sm">
+                    <div className="flex items-center gap-1.5">
+                      <h4 className="font-black text-white text-sm">
                         {threadData?.is_admin_view
                           ? `${threadData?.participants?.user1?.name || 'User 1'} ↔ ${threadData?.participants?.user2?.name || 'User 2'}`
-                          : (threadData?.peer?.full_name || 'Loading conversation...')}
+                          : (threadData?.peer?.full_name || 'Loading user...')}
                       </h4>
+                      <span className="text-blue-400 text-xs font-bold" title="Verified">✓</span>
                       {threadData?.is_admin_view && (
-                        <span className="text-[10px] px-2 py-0.5 rounded bg-amber-950 text-amber-300 font-extrabold border border-amber-800">
-                          👑 ADMIN MONITORING VIEW
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-amber-950 text-amber-300 font-extrabold border border-amber-800 ml-1">
+                          👑 AUDIT VIEW
                         </span>
                       )}
                     </div>
                     <div className="text-[11px] text-emerald-400 flex items-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                      <span>Active on Campus</span>
+                      <span>Active now</span>
                       {threadData?.peer?.role && (
                         <span className="text-slate-400 font-normal">
-                          • {threadData.peer.role} {threadData.peer.locked_year ? `(Year ${threadData.peer.locked_year})` : ''}
+                          • {threadData.peer.role} {threadData.peer.locked_year ? `(Yr ${threadData.peer.locked_year})` : ''}
                         </span>
                       )}
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] text-slate-500">End-to-End Campus Audited</span>
+                {/* Instagram Header Action Icons */}
+                <div className="flex items-center gap-3 text-slate-300">
+                  <button className="p-2 rounded-full hover:bg-slate-800 transition-colors" title="Audio Call">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                    </svg>
+                  </button>
+                  <button className="p-2 rounded-full hover:bg-slate-800 transition-colors" title="Video Call">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                  </button>
+                  <button className="p-2 rounded-full hover:bg-slate-800 transition-colors" title="Thread Info">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </button>
                 </div>
               </div>
 
               {/* Message Feed */}
-              <div className="flex-1 p-4 overflow-y-auto space-y-3">
+              <div className="flex-1 p-4 overflow-y-auto space-y-3.5">
                 {loading ? (
-                  <div className="text-center py-8 text-xs text-slate-500">Loading conversation...</div>
+                  <div className="text-center py-8 text-xs text-slate-500">Loading Ask_Up messages...</div>
                 ) : (!threadData?.messages || threadData.messages.length === 0) ? (
                   <div className="text-center py-16 text-xs text-slate-500 italic">
-                    No messages yet. Say hi or ask an academic question!
+                    No messages yet in this Ask_Up thread. Say hi or ask an academic question!
                   </div>
                 ) : (
                   threadData.messages.map((m) => {
                     const isMine = m.is_me;
+                    const isHeartAnimating = animatingHeartMsgId === m.id;
+                    const hasHeartReaction = m.reactions && m.reactions['❤️'] && m.reactions['❤️'].length > 0;
+
                     return (
                       <div
                         key={m.id}
@@ -575,10 +628,20 @@ export default function CampusChatPage({ user }) {
                           </span>
                         )}
 
-                        <div className="relative max-w-[78%]">
+                        <div
+                          className="relative max-w-[75%] cursor-pointer select-none"
+                          onDoubleClick={() => handleDoubleClickMessage(m)}
+                        >
+                          {/* Floating Heart Burst Animation on Double Click */}
+                          {isHeartAnimating && (
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20 animate-ping">
+                              <span className="text-4xl">❤️</span>
+                            </div>
+                          )}
+
                           {/* Image Attachment (Instagram Style) */}
                           {m.attachment_url && (
-                            <div className="mb-1 rounded-2xl overflow-hidden border border-slate-700 bg-slate-950">
+                            <div className="mb-1 rounded-2xl overflow-hidden border border-slate-700 bg-black">
                               <img
                                 src={m.attachment_url}
                                 alt="Attachment"
@@ -587,12 +650,12 @@ export default function CampusChatPage({ user }) {
                             </div>
                           )}
 
-                          {/* Message Bubble (Supports Text and WhatsApp-style Live Location Card) */}
+                          {/* Instagram Message Bubble */}
                           <div
-                            className={`px-4 py-2.5 rounded-2xl text-xs leading-relaxed break-words shadow-md ${
+                            className={`px-4 py-2.5 text-xs leading-relaxed break-words shadow-md transition-all ${
                               isMine
-                                ? 'bg-gradient-to-tr from-blue-600 to-indigo-600 text-white rounded-br-sm'
-                                : 'bg-slate-800 text-slate-100 rounded-bl-sm border border-slate-700/60'
+                                ? 'bg-gradient-to-tr from-[#7928CA] via-[#B800FF] to-[#FF0080] text-white rounded-[22px] rounded-br-[4px]'
+                                : 'bg-[#262626] border border-[#333333] text-white rounded-[22px] rounded-bl-[4px]'
                             }`}
                           >
                             {m.content_text && m.content_text.includes('maps.google.com') ? (
@@ -601,10 +664,10 @@ export default function CampusChatPage({ user }) {
                                   <span className="text-sm">📍</span>
                                   <span>Live Campus Location</span>
                                 </div>
-                                <div className="p-2.5 rounded-xl bg-slate-950/80 border border-emerald-500/40 text-slate-200">
+                                <div className="p-2.5 rounded-xl bg-black/70 border border-emerald-500/40 text-slate-200">
                                   <div className="flex items-center gap-1.5 text-[10px] text-emerald-400 font-semibold mb-1">
                                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                                    <span>Real-Time Coordinates Shared</span>
+                                    <span>Real-Time GPS Coordinates</span>
                                   </div>
                                   <a
                                     href={m.content_text.match(/https:\/\/maps\.google\.com[^\s\)]+/)?.[0] || 'https://maps.google.com'}
@@ -624,15 +687,28 @@ export default function CampusChatPage({ user }) {
                             )}
                           </div>
 
+                          {/* Heart Reaction Badge (Instagram Style at corner of bubble) */}
+                          {hasHeartReaction && (
+                            <div className={`absolute -bottom-2 ${isMine ? '-left-1' : '-right-1'} bg-[#1a1a1a] border border-[#333] rounded-full px-1.5 py-0.2 text-[10px] shadow-lg flex items-center gap-0.5 z-10`}>
+                              <span>❤️</span>
+                              {m.reactions['❤️'].length > 1 && (
+                                <span className="font-bold text-[9px] text-white">{m.reactions['❤️'].length}</span>
+                              )}
+                            </div>
+                          )}
+
                           {/* Hover Emoji Reaction Bar (Instagram Style) */}
                           <div className={`hidden group-hover:flex items-center gap-1 absolute -top-8 ${
                             isMine ? 'right-0' : 'left-0'
-                          } bg-slate-950 border border-slate-800 rounded-full px-2 py-0.5 shadow-xl z-10`}>
+                          } bg-[#181818] border border-[#333] rounded-full px-2 py-0.5 shadow-xl z-20`}>
                             {EMOJI_LIST.map((emoji) => (
                               <button
                                 key={emoji}
                                 type="button"
-                                onClick={() => handleToggleReaction(m.id, emoji)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleToggleReaction(m.id, emoji);
+                                }}
                                 className="hover:scale-125 transition-transform text-xs p-0.5"
                               >
                                 {emoji}
@@ -641,38 +717,21 @@ export default function CampusChatPage({ user }) {
                             {isAdmin && (
                               <button
                                 type="button"
-                                onClick={() => handleAdminDeleteMessage(m.id)}
-                                title="Admin: Redact Message"
-                                className="text-rose-400 hover:text-rose-300 text-[10px] font-bold ml-1 pl-1 border-l border-slate-800"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAdminDeleteMessage(m.id);
+                                }}
+                                title="Admin: Moderate Message"
+                                className="text-rose-400 hover:text-rose-300 text-[10px] font-bold ml-1 pl-1 border-l border-slate-700"
                               >
                                 ✕ Redact
                               </button>
                             )}
                           </div>
-
-                          {/* Displayed Emoji Reactions */}
-                          {m.reactions && Object.keys(m.reactions).length > 0 && (
-                            <div className={`flex flex-wrap gap-1 mt-1 ${isMine ? 'justify-end' : 'justify-start'}`}>
-                              {Object.entries(m.reactions).map(([emoji, userIds]) => (
-                                <button
-                                  key={emoji}
-                                  onClick={() => handleToggleReaction(m.id, emoji)}
-                                  className={`px-1.5 py-0.2 rounded-full text-[10px] border flex items-center gap-0.5 ${
-                                    userIds.includes(user.id)
-                                      ? 'bg-blue-950 border-blue-600 text-blue-200'
-                                      : 'bg-slate-950 border-slate-800 text-slate-300'
-                                  }`}
-                                >
-                                  <span>{emoji}</span>
-                                  <span className="font-bold text-[9px]">{userIds.length}</span>
-                                </button>
-                              ))}
-                            </div>
-                          )}
                         </div>
 
                         {/* Timestamp */}
-                        <span className="text-[10px] text-slate-500 mt-0.5 px-1">
+                        <span className="text-[10px] text-slate-500 mt-1 px-1">
                           {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </div>
@@ -684,7 +743,7 @@ export default function CampusChatPage({ user }) {
 
               {/* Attachment Preview Box */}
               {attachPreview && (
-                <div className="p-2 bg-slate-950 border-t border-slate-800 flex items-center justify-between">
+                <div className="p-2 bg-[#1a1a1a] border-t border-[#262626] flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <img src={attachPreview} alt="Preview" className="h-12 w-12 object-cover rounded-lg border border-slate-700" />
                     <span className="text-xs text-slate-300">Photo attached ready to send</span>
@@ -701,69 +760,90 @@ export default function CampusChatPage({ user }) {
                 </div>
               )}
 
-              {/* Message Input Bar (Instagram Style) */}
-              <form onSubmit={handleSendMessage} className="p-3 border-t border-slate-800 bg-slate-950/90 flex items-center gap-2">
-                {/* Photo Attachment Picker */}
-                <label className="cursor-pointer p-2 rounded-xl text-slate-400 hover:text-blue-400 hover:bg-slate-900 transition-all flex-shrink-0" title="Attach Photo">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
+              {/* Instagram Direct Message Input Bar */}
+              <form onSubmit={handleSendMessage} className="p-3 border-t border-[#262626] bg-[#141414] flex items-center gap-2">
+                {/* Pill-shaped container */}
+                <div className="flex-1 flex items-center bg-[#202020] border border-[#2e2e2e] rounded-full px-3 py-1 gap-2 focus-within:border-pink-500 transition-all">
+                  
+                  {/* Photo Attachment Picker (Instagram Camera) */}
+                  <label className="cursor-pointer p-1.5 rounded-full text-slate-400 hover:text-pink-400 transition-all flex-shrink-0" title="Attach Photo">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          setAttachFile(file);
+                          setAttachPreview(URL.createObjectURL(file));
+                        }
+                      }}
+                      className="hidden"
+                    />
+                  </label>
+
+                  {/* Share Live Location Button */}
+                  <button
+                    type="button"
+                    onClick={handleShareLiveLocation}
+                    disabled={locating || !activeThreadId}
+                    className="p-1.5 rounded-full text-slate-400 hover:text-emerald-400 transition-all flex-shrink-0"
+                    title="Share Live Location"
+                  >
+                    {locating ? (
+                      <span className="w-4 h-4 flex items-center justify-center animate-spin text-xs">⏳</span>
+                    ) : (
+                      <span className="text-sm">📍</span>
+                    )}
+                  </button>
+
+                  {/* Text Input */}
                   <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files[0];
-                      if (file) {
-                        setAttachFile(file);
-                        setAttachPreview(URL.createObjectURL(file));
-                      }
-                    }}
-                    className="hidden"
+                    type="text"
+                    placeholder="Message..."
+                    value={inputText}
+                    onChange={(e) => setInputText(e.target.value)}
+                    className="flex-1 bg-transparent border-none text-xs text-white placeholder-slate-400 focus:outline-none"
                   />
-                </label>
 
-                {/* Share Live Location Button (WhatsApp Style) */}
-                <button
-                  type="button"
-                  onClick={handleShareLiveLocation}
-                  disabled={locating || !activeThreadId}
-                  className="p-2 rounded-xl text-slate-400 hover:text-emerald-400 hover:bg-slate-900 transition-all flex-shrink-0"
-                  title="Share Live Location"
-                >
-                  {locating ? (
-                    <span className="w-5 h-5 flex items-center justify-center animate-spin text-xs">⏳</span>
-                  ) : (
-                    <span className="text-base">📍</span>
-                  )}
-                </button>
+                  {/* Voice Note Placeholder Icon */}
+                  <button
+                    type="button"
+                    onClick={() => alert('Audio voice notes are enabled in Ask_Up!')}
+                    className="p-1 rounded-full text-slate-400 hover:text-slate-200 transition-all flex-shrink-0"
+                    title="Voice Note"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                    </svg>
+                  </button>
+                </div>
 
-                {/* Text Input */}
-                <input
-                  type="text"
-                  placeholder="Message..."
-                  value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
-                  className="flex-1 px-4 py-2 rounded-2xl bg-slate-900 border border-slate-800 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500"
-                />
-
-                {/* Quick Heart Reaction Button */}
-                <button
-                  type="button"
-                  onClick={() => setInputText((prev) => prev + ' ❤️')}
-                  className="p-2 text-rose-500 hover:scale-125 transition-transform"
-                  title="Send heart"
-                >
-                  ❤️
-                </button>
-
-                {/* Send Button */}
-                <button
-                  type="submit"
-                  disabled={sending || (!inputText.trim() && !attachFile)}
-                  className="px-4 py-2 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs disabled:opacity-40 transition-all shadow-md shadow-blue-500/20"
-                >
-                  Send
-                </button>
+                {/* Instagram Quick Heart or Send Button */}
+                {!inputText.trim() && !attachFile ? (
+                  <button
+                    type="button"
+                    onClick={handleSendHeart}
+                    disabled={sending || !activeThreadId}
+                    className="p-2 text-rose-500 hover:scale-125 transition-transform flex-shrink-0"
+                    title="Send Heart"
+                  >
+                    <svg className="w-6 h-6 fill-rose-500 hover:fill-rose-400" viewBox="0 0 24 24">
+                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                    </svg>
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={sending}
+                    className="px-4 py-2 rounded-full bg-gradient-to-r from-[#833ab4] via-[#fd1d1d] to-[#fcb045] text-white font-black text-xs hover:opacity-90 transition-all shadow-md shadow-pink-500/20 flex-shrink-0"
+                  >
+                    Send
+                  </button>
+                )}
               </form>
             </>
           )}
@@ -775,9 +855,11 @@ export default function CampusChatPage({ user }) {
       {/* ==================================================================== */}
       {showNewChatModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
-              <h3 className="font-extrabold text-white text-base">New Direct Message</h3>
+          <div className="bg-[#181818] border border-[#2e2e2e] rounded-3xl p-6 max-w-md w-full shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#2e2e2e] pb-3 mb-4">
+              <h3 className="font-black text-white text-base flex items-center gap-2">
+                <span>New Ask_Up Message</span>
+              </h3>
               <button
                 onClick={() => setShowNewChatModal(false)}
                 className="text-slate-400 hover:text-white font-bold text-sm"
@@ -789,46 +871,42 @@ export default function CampusChatPage({ user }) {
             <div className="mb-4">
               <input
                 type="text"
-                placeholder="Search students, seniors, faculty..."
+                placeholder="Search students, faculty, or seniors..."
                 value={searchQuery}
                 onChange={(e) => handleSearchUsers(e.target.value)}
-                autoFocus
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                className="w-full px-4 py-2 rounded-full bg-[#242424] border border-[#333] text-xs text-white placeholder-slate-400 focus:outline-none focus:border-pink-500"
               />
             </div>
 
-            <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
+            <div className="max-h-60 overflow-y-auto space-y-2">
               {searching ? (
-                <div className="text-center py-6 text-xs text-slate-500">Searching directory...</div>
+                <div className="text-center py-4 text-xs text-slate-500">Searching directory...</div>
               ) : searchResults.length === 0 ? (
-                <div className="text-center py-6 text-xs text-slate-500 italic">No matching students found.</div>
+                <div className="text-center py-4 text-xs text-slate-500">No peers found. Try typing a name or CRN.</div>
               ) : (
                 searchResults.map((u) => (
                   <div
                     key={u.id}
                     onClick={() => handleStartChatWithUser(u)}
-                    className="p-3 rounded-2xl bg-slate-950 border border-slate-800/80 hover:border-blue-500/50 hover:bg-slate-900 cursor-pointer flex items-center justify-between transition-all"
+                    className="p-2.5 rounded-2xl hover:bg-[#252525] cursor-pointer flex items-center justify-between transition-colors border border-transparent hover:border-[#383838]"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-black text-xs shadow-md">
-                        {u.avatar_char}
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-[2px] rounded-full bg-gradient-to-tr from-[#f09433] via-[#dc2743] to-[#bc1888]">
+                        <div className="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-white font-bold text-xs border border-black">
+                          {u.full_name?.charAt(0) || 'U'}
+                        </div>
                       </div>
                       <div>
-                        <div className="font-bold text-xs text-white flex items-center gap-1.5">
+                        <div className="text-xs font-bold text-white flex items-center gap-1">
                           {u.full_name}
-                          {u.locked_year && (
-                            <span className="text-[10px] text-blue-300 bg-blue-950 px-1.5 rounded">
-                              Yr {u.locked_year}
-                            </span>
-                          )}
+                          <span className="text-blue-400 text-[10px]">✓</span>
                         </div>
-                        <div className="text-[11px] text-slate-400">
-                          {u.role} • Batch {u.batch}
+                        <div className="text-[10px] text-slate-400">
+                          {u.role} {u.locked_year ? `• Year ${u.locked_year}` : ''} • {u.batch || 'Allenhouse'}
                         </div>
                       </div>
                     </div>
-
-                    <button className="px-3 py-1 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-[11px]">
+                    <button className="px-3 py-1 rounded-full bg-gradient-to-r from-[#833ab4] to-[#fd1d1d] text-white font-black text-[11px] shadow-sm">
                       Chat
                     </button>
                   </div>

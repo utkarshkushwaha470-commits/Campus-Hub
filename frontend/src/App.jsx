@@ -111,7 +111,7 @@ export default function App() {
             setPopupToast({
               id: Date.now(),
               icon: '💬',
-              title: `AskUp Message from ${msg.message?.sender_name || 'Campus Member'}`,
+              title: `Ask_Up Message from ${msg.message?.sender_name || 'Campus Member'}`,
               subtitle: msg.message?.content_text || 'Sent an attachment',
               targetPage: 'chat'
             });
@@ -465,7 +465,7 @@ export default function App() {
               </span>
             )}
           </div>
-          AskUp
+          Ask_Up
         </button>
 
         <button

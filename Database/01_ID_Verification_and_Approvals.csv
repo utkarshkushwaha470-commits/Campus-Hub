@@ -1,4 +1,8 @@
 Request_ID,Student_Name,Student_Email,CRN_Roll_No,Batch,Academic_Year,Clearance_Status,Request_Time,Approved_By_Admin,Admin_Email,Approval_Time,Remarks_or_Rejection_Reason,OCR_Confidence
+ef990101-4dfa-4253-84ef-16373eac234e,imad12,imad12@gmail.com,23bcs1234,2026-2030,1,APPROVED,2026-10-31 06:30:00.563815,Udit Raj,u88314614@gmail.com,2026-10-31 06:30:04.831111,None (Approved),95.0%
+22072620-b311-458e-b07e-d08cd8fd7a6e,sweety sharma,abc1234567@gmail.com,12345,2026-2030,1,APPROVED,2026-10-31 06:29:45.714715,Udit Raj,u88314614@gmail.com,2026-10-31 06:30:07.450929,None (Approved),95.0%
+d4eacb9b-9fc8-431c-9b52-b8daa8055c3e,pinky,pinky@gmail.com,25bcs002,2026-2030,1,APPROVED,2026-10-31 05:57:14.197925,UTKARSH   KUSHWAHA,utkarshkushwaha470@gmail.com,2026-10-31 06:00:03.727955,None (Approved),95.0%
+1e152155-3667-49aa-bb02-0185aa807fba,aryan,aryan123@gmail.com,25bcs001,2026-2030,1,APPROVED,2026-10-31 05:56:05.841165,UTKARSH   KUSHWAHA,utkarshkushwaha470@gmail.com,2026-10-31 06:00:05.086756,None (Approved),95.0%
 b1c84015-f99c-47c0-979b-394ae389fea3,Yash,yash@gmail.com,CRNBCS77,2026-2030,1,APPROVED,2026-10-31 05:14:47.892870,Udit Raj,u88314614@gmail.com,2026-10-31 05:15:59.572646,None (Approved),95.0%
 9e25a812-69ab-4898-a5ec-d7714db4d08b,Krishna verma,krishnavrma11@gmail.com,25BCS123,2026-2030,1,APPROVED,2026-10-31 04:59:55.570510,UTKARSH   KUSHWAHA,utkarshkushwaha470@gmail.com,2026-10-31 05:00:09.618161,None (Approved),95.0%
 51673877-e238-4bfc-a312-57a8a277aa23,pranjal sahu,shubhsahu3132007@gmail.com,25BCS030,2026-2030,2,APPROVED,2026-10-31 04:57:37.616582,Udit Raj,u88314614@gmail.com,2026-10-31 04:58:23.375908,None (Approved),95.0%
@@ -11,6 +15,6 @@ c04e02e3-224d-402e-a51b-9a3806224562,Krishna Verma,krishnavrma07@gmail.com,25BCS
 2a3bb05a-4913-4dbe-a117-805fa7821caa,abhi,12@gmail.com,qwerty,2026-2030,3,APPROVED,2026-10-30 15:52:27.085829,raj,1234@gmail.com,2026-10-30 15:53:43.894630,None (Approved),95.0%
 d4b0922e-3fcb-4a7f-9120-ebf0cef59d0c,praneet,praneet@gmail.com,26bcs088,2026-2030,1,APPROVED,2026-10-30 09:24:30.172205,UTKARSH   KUSHWAHA,utkarshkushwaha470@gmail.com,2026-10-30 09:25:12.616720,None (Approved),95.0%
 28b427aa-9ca9-4384-8ebc-39b5aef070bc,hero,hero123@gmail.com,26bcs008,2026-2030,1,APPROVED,2026-10-30 08:03:16.096824,Rohit,rohit123@gmail.com,2026-10-30 08:41:25.870400,None (Approved),95.0%
-b6867f04-faa4-4072-a7af-444c44f4fb8d,raj,ray123@gmail.com,25bcs009,2026-2030,,REJECTED,2026-10-30 06:50:08.552424,UTKARSH   KUSHWAHA,utkarshkushwaha470@gmail.com,2026-10-30 06:52:03.259614,crn details not matched with the photo,95.0%
+b6867f04-faa4-4072-a7af-444c44f4fb8d,raj,ray123@gmail.com,25bcs009,2026-2030,-,REJECTED,2026-10-30 06:50:08.552424,UTKARSH   KUSHWAHA,utkarshkushwaha470@gmail.com,2026-10-30 06:52:03.259614,crn details not matched with the photo,95.0%
 ff7f91d7-f68d-40a3-ab3d-677b0748c748,Udit Raj,u88314614@gmail.com,25BCS097,2025-2029,2,APPROVED,2026-10-29 10:05:40.356204,UTKARSH KUSHWAHA (Chief Admin),utkarshkushwaha470@gmail.com,2026-10-29 10:07:03.802199,None (Approved),95.0%
-09a48c2c-ea56-433c-846d-1baf052075bd,UTKARSH   KUSHWAHA,utkarshkushwaha470@gmail.com,2720A,PHD,,APPROVED,2026-10-29 06:18:45.481958,UTKARSH KUSHWAHA (Chief Admin),utkarshkushwaha470@gmail.com,2026-10-29 09:56:25.538755,None (Approved),95.0%
+09a48c2c-ea56-433c-846d-1baf052075bd,UTKARSH   KUSHWAHA,utkarshkushwaha470@gmail.com,2720A,PHD,-,APPROVED,2026-10-29 06:18:45.481958,UTKARSH KUSHWAHA (Chief Admin),utkarshkushwaha470@gmail.com,2026-10-29 09:56:25.538755,None (Approved),95.0%

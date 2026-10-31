@@ -114,27 +114,27 @@ export default function DashboardPage({ user, onNavigate, navBadges = {} }) {
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          {/* 1. Instagram-Style Campus DMs (NEW) */}
+          {/* 1. Instagram-Style Ask_Up (NEW) */}
           <div 
             onClick={() => onNavigate('chat')}
-            className="group cursor-pointer rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-purple-950/40 border border-slate-800 hover:border-pink-500/50 p-5 transition-all shadow-lg hover:shadow-pink-500/10 relative overflow-hidden"
+            className="group cursor-pointer rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-[#833ab4]/10 border border-slate-800 hover:border-pink-500/60 p-5 transition-all shadow-lg hover:shadow-pink-500/20 relative overflow-hidden"
           >
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-pink-500/20 to-purple-600/20 text-pink-400 border border-pink-500/30 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-[#833ab4]/30 via-[#fd1d1d]/30 to-[#fcb045]/30 text-pink-400 border border-pink-500/40 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+              <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2L2 22l10-3 10 3L12 2zm0 3.8L18.8 18l-6.8-2-6.8 2L12 5.8z" />
               </svg>
             </div>
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2"><h4 className="font-bold text-white text-base">Campus DMs</h4>{renderBadge(navBadges.campus_dm)}</div>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-gradient-to-r from-pink-500/30 to-purple-500/30 text-pink-200 border border-pink-500/40">
-                INSTA-CHAT
+              <div className="flex items-center gap-2"><h4 className="font-bold text-white text-base">Ask_Up</h4>{renderBadge(navBadges.ask_up || navBadges.campus_dm)}</div>
+              <span className="text-[10px] font-black px-2 py-0.5 rounded bg-gradient-to-r from-[#833ab4] via-[#fd1d1d] to-[#fcb045] text-white shadow-sm">
+                INSTA-DM
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
-              Instagram-style messaging with peers, image sharing, and emoji reactions.
+              Instagram-style direct messaging with peers, live location, photo sharing, and double-tap heart reactions.
             </p>
             <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-pink-400 font-semibold">
-              <span>Open DMs</span>
+              <span>Open Ask_Up</span>
               <span className="group-hover:translate-x-1 transition-transform">→</span>
             </div>
           </div>

@@ -1,3 +1,4 @@
+from datetime import datetime
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
@@ -119,6 +120,25 @@ async def signup_student(
     db.add(verification)
     db.commit()
 
+    try:
+        audit_service.log_action(
+            db=db,
+            admin_id=new_user.id,
+            action_type="STUDENT_SIGNUP_REQUEST",
+            target_entity="USER",
+            target_id=new_user.id,
+            details={
+                "full_name": new_user.full_name,
+                "email": new_user.email,
+                "role": new_user.role,
+                "crn": new_user.crn_or_roll_number,
+                "batch": new_user.batch,
+                "status": "PENDING"
+            }
+        )
+    except Exception:
+        pass
+
     token = create_access_token({"sub": new_user.id, "role": new_user.role})
     return {
         "access_token": token,
@@ -219,6 +239,24 @@ async def login(req: LoginRequest, db: Session = Depends(get_db)):
 
     if user.email.lower() == "utkarshkushwaha470@gmail.com":
         user.is_chief_admin = True
+
+    try:
+        audit_service.log_action(
+            db=db,
+            admin_id=user.id,
+            action_type="USER_LOGIN_REQUEST",
+            target_entity="AUTHENTICATION",
+            target_id=user.id,
+            details={
+                "full_name": user.full_name,
+                "email": user.email,
+                "role": user.role,
+                "status": user.status,
+                "login_time": datetime.utcnow().isoformat()
+            }
+        )
+    except Exception:
+        pass
 
     token = create_access_token({"sub": user.id, "role": user.role})
     return {
