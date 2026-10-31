@@ -236,7 +236,12 @@ export default function Navbar({
 
             >
 
-              <span>💬 AskUp</span>
+              <span className="inline-flex items-center gap-1.5">
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2L2 22l10-3 10 3L12 2zm0 3.8L18.8 18l-6.8-2-6.8 2L12 5.8z" />
+                </svg>
+                <span>Ask_Up</span>
+              </span>
 
               {renderBadge('chat', navBadges.askup || navBadges.campus_dms || navBadges.campus_dm || (hasUnreadMessages ? 1 : 0))}
 

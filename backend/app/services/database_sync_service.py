@@ -132,6 +132,7 @@ def export_database_now():
             COALESCE(pb.admin_response_text, 'Pending Official Response') AS Admin_Response_Text,
             COALESCE(pb.replied_at, 'In Queue') AS Response_Time,
             COALESCE(pb.forwarded_to_name, 'Direct Admin Resolution') AS Forwarded_Authority,
+            CASE WHEN pb.recipient_role = 'ADMINISTRATOR' THEN '🛡️ Administrator Only (Strictly Inaccessible to Faculty)' ELSE '🏫 Faculty Review (Student Identity Concealed)' END AS Privacy_Access_Rule,
             CASE WHEN pb.ai_safety_flag = 1 THEN '⚠️ URGENT SAFETY ALERT' ELSE 'Standard Grievance' END AS Safety_Level
         FROM problem_box_messages pb
         LEFT JOIN users u ON pb.student_id = u.id

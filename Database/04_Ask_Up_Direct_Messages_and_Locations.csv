@@ -1,4 +1,23 @@
 Message_ID,Message_Timestamp,Sender_Name,Sender_Role,Recipient_Name,Recipient_Role,Message_Content,Message_Type,Delivery_Status
+664dc667-6add-4ec4-acdb-10e015f37d56,2026-10-31 09:18:15.418348,pranjal sahu,STUDENT,UTKARSH   KUSHWAHA,ADMIN,hi,Text / Media,Seen / Read
+6e5066c8-fd38-4935-8a6b-54114c33189f,2026-10-31 08:40:14.735535,pranjal sahu,STUDENT,UTKARSH   KUSHWAHA,ADMIN,hello,Text / Media,Seen / Read
+871c1410-7ead-40ea-890f-5310a6970b92,2026-10-31 08:39:40.032083,UTKARSH   KUSHWAHA,ADMIN,pranjal sahu,STUDENT,gi bhai,Text / Media,Seen / Read
+d0607e8c-6798-4002-88f1-fdbf1b1eca9d,2026-10-31 08:39:14.225634,Udit Raj,ADMIN,UTKARSH   KUSHWAHA,ADMIN,hero,Text / Media,Delivered
+1a5b473f-f2fa-42ac-a8a3-123f1c2efd48,2026-10-31 08:39:08.857964,Udit Raj,ADMIN,pranjal sahu,STUDENT,hero,Text / Media,Seen / Read
+7bdecdee-b172-4f2f-b7e0-a1fe3df5fbb4,2026-10-31 08:39:04.640910,pranjal sahu,STUDENT,UTKARSH   KUSHWAHA,ADMIN,hey admin,Text / Media,Seen / Read
+1b76fbce-2fdd-40b7-844d-7abb5c0fc02b,2026-10-31 08:39:02.930711,Udit Raj,ADMIN,Krishna Verma,STUDENT,hii,Text / Media,Seen / Read
+ecd16afe-023e-4cef-bf44-af04be63d910,2026-10-31 08:35:35.102550,UTKARSH   KUSHWAHA,ADMIN,Krishna Verma,STUDENT,hi,Text / Media,Seen / Read
+9b38b4f4-5106-4f46-91af-a3129c4a1b74,2026-10-31 08:35:23.527615,Krishna Verma,STUDENT,UTKARSH   KUSHWAHA,ADMIN,👋 Hello! How are you?,Text / Media,Seen / Read
+274622af-1218-4396-a2ab-f3825d4ae08d,2026-10-31 08:18:33.671053,Udit Raj,ADMIN,Krishna Verma,STUDENT,hii,Text / Media,Seen / Read
+5d2f57b6-01ef-44ee-85b0-a73a5dac3736,2026-10-31 08:18:25.987606,Krishna Verma,STUDENT,Udit Raj,ADMIN,hello,Text / Media,Seen / Read
+c524023e-a938-4912-8276-e0be3a98c118,2026-10-31 08:17:15.406018,Udit Raj,ADMIN,pranjal sahu,STUDENT,hii,Text / Media,Seen / Read
+92e57891-3b86-47ee-ab57-695b6c796c39,2026-10-31 08:17:01.160339,pranjal sahu,STUDENT,Udit Raj,ADMIN,hello,Text / Media,Seen / Read
+cdb8b872-f837-423c-86dc-263848d87365,2026-10-31 08:17:01.096303,Krishna Verma,STUDENT,Udit Raj,ADMIN,hiii,Text / Media,Seen / Read
+7836fc4e-981a-479c-8063-a23377a7f3d4,2026-10-31 08:15:22.600382,Udit Raj,ADMIN,UTKARSH   KUSHWAHA,ADMIN,❤️,Text / Media,Seen / Read
+3fb42450-b5b2-4e3f-87eb-f986ad548a2d,2026-10-31 08:14:56.023699,Udit Raj,ADMIN,UTKARSH   KUSHWAHA,ADMIN,hii,Text / Media,Seen / Read
+93819eaa-4d2d-498a-baa4-fe56bbf575ae,2026-10-31 08:14:28.307585,UTKARSH   KUSHWAHA,ADMIN,Udit Raj,ADMIN,hi,Text / Media,Seen / Read
+d730a070-7d1e-478c-af8f-fadd6cd2ebec,2026-10-31 08:13:54.249654,UTKARSH   KUSHWAHA,ADMIN,Udit Raj,ADMIN,hi,Text / Media,Seen / Read
+2c1b35ed-ce5b-420c-9f4f-85a5201854a2,2026-10-31 08:13:15.126025,pranjal sahu,STUDENT,Udit Raj,ADMIN,hii,Text / Media,Seen / Read
 5205a994-e5a0-4006-986f-43a444b050de,2026-10-31 04:38:18.439334,UTKARSH   KUSHWAHA,ADMIN,1234,STUDENT,hello,Text / Media,Seen / Read
 e0ab80cb-5efa-409c-9e0d-332fc0b6dcad,2026-10-31 04:36:27.633170,1234,STUDENT,UTKARSH   KUSHWAHA,ADMIN,hi sir,Text / Media,Seen / Read
 f83e4e0c-5490-420e-aa8b-707958369ab0,2026-10-31 02:10:57.612652,Lu,STUDENT,UTKARSH   KUSHWAHA,ADMIN,Hi,Text / Media,Seen / Read
