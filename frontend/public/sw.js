@@ -1,4 +1,4 @@
-const CACHE_NAME = 'brogrammers-v6';
+const CACHE_NAME = 'campus-hub-v10-bust-' + Date.now();
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
