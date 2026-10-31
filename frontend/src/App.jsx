@@ -105,6 +105,16 @@ export default function App() {
               subtitle: `Response to "${msg.subject}": ${msg.response_text?.slice(0, 60)}...`,
               targetPage: 'problem-box'
             });
+          } else if (msg.type === 'CHAT_MESSAGE' || msg.type === 'NEW_MESSAGE') {
+            playNotificationChime();
+            setHasUnreadMessages(true);
+            setPopupToast({
+              id: Date.now(),
+              icon: '💬',
+              title: `AskUp Message from ${msg.message?.sender_name || 'Campus Member'}`,
+              subtitle: msg.message?.content_text || 'Sent an attachment',
+              targetPage: 'chat'
+            });
           }
         } catch (e) {
           console.error(e);
@@ -455,7 +465,7 @@ export default function App() {
               </span>
             )}
           </div>
-          Chat
+          AskUp
         </button>
 
         <button

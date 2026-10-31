@@ -19,6 +19,7 @@ export default function CampusChatPage({ user }) {
   const [attachFile, setAttachFile] = useState(null);
   const [attachPreview, setAttachPreview] = useState(null);
   const [sending, setSending] = useState(false);
+  const [locating, setLocating] = useState(false);
 
   // New Chat Modal state
   const [showNewChatModal, setShowNewChatModal] = useState(false);
@@ -37,6 +38,11 @@ export default function CampusChatPage({ user }) {
     if (isAdmin) {
       loadAdminThreads();
     }
+    // WhatsApp-style active background synchronization
+    const poller = setInterval(() => {
+      loadInbox();
+    }, 2500);
+    return () => clearInterval(poller);
   }, [adminViewAll]);
 
   // Connect WebSocket to active thread
@@ -49,7 +55,7 @@ export default function CampusChatPage({ user }) {
     const pollInterval = setInterval(() => {
       loadThreadMessages(activeThreadId);
       loadInbox();
-    }, 4000);
+    }, 2000);
 
     // WebSocket connection to thread room
     const wsUrl = `${getWsBase()}/ws/chat/${activeThreadId}`;
@@ -108,6 +114,9 @@ export default function CampusChatPage({ user }) {
     try {
       const data = await api.getChatInbox();
       setInbox(data);
+      if (!activeThreadId && data && data.length > 0) {
+        setActiveThreadId(data[0].thread_id);
+      }
     } catch (err) {
       console.error('Error loading inbox:', err);
     }
@@ -133,6 +142,42 @@ export default function CampusChatPage({ user }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleShareLiveLocation = () => {
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by your browser.');
+      return;
+    }
+    if (!activeThreadId) return;
+
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const accuracy = Math.round(pos.coords.accuracy || 10);
+        const mapsLink = `https://maps.google.com/?q=${lat},${lng}`;
+        const locMsg = `📍 Live Location: ${mapsLink} (GPS accuracy ~${accuracy}m)`;
+
+        try {
+          const fd = new FormData();
+          fd.append('content_text', locMsg);
+          await api.sendChatMessage(activeThreadId, fd);
+          loadThreadMessages(activeThreadId);
+          loadInbox();
+        } catch (err) {
+          alert(err.message || 'Failed to share location');
+        } finally {
+          setLocating(false);
+        }
+      },
+      (err) => {
+        setLocating(false);
+        alert('Could not retrieve GPS location. Please allow browser location access.');
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
   };
 
   const handleSendMessage = async (e) => {
@@ -214,7 +259,7 @@ export default function CampusChatPage({ user }) {
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-2xl font-extrabold text-white tracking-tight flex items-center gap-2">
-              <span>Campus Direct Messages</span>
+              <span>AskUp Direct Messages</span>
               <span className="text-xs px-2 py-0.5 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold shadow-sm">
                 Insta-Style
               </span>
@@ -481,8 +526,8 @@ export default function CampusChatPage({ user }) {
                     <div className="flex items-center gap-2">
                       <h4 className="font-extrabold text-white text-sm">
                         {threadData?.is_admin_view
-                          ? `${threadData.participants.user1?.name} ↔ ${threadData.participants.user2?.name}`
-                          : threadData?.peer?.full_name}
+                          ? `${threadData?.participants?.user1?.name || 'User 1'} ↔ ${threadData?.participants?.user2?.name || 'User 2'}`
+                          : (threadData?.peer?.full_name || 'Loading conversation...')}
                       </h4>
                       {threadData?.is_admin_view && (
                         <span className="text-[10px] px-2 py-0.5 rounded bg-amber-950 text-amber-300 font-extrabold border border-amber-800">
@@ -542,7 +587,7 @@ export default function CampusChatPage({ user }) {
                             </div>
                           )}
 
-                          {/* Message Bubble */}
+                          {/* Message Bubble (Supports Text and WhatsApp-style Live Location Card) */}
                           <div
                             className={`px-4 py-2.5 rounded-2xl text-xs leading-relaxed break-words shadow-md ${
                               isMine
@@ -550,7 +595,33 @@ export default function CampusChatPage({ user }) {
                                 : 'bg-slate-800 text-slate-100 rounded-bl-sm border border-slate-700/60'
                             }`}
                           >
-                            {m.content_text}
+                            {m.content_text && m.content_text.includes('maps.google.com') ? (
+                              <div className="space-y-2 py-0.5">
+                                <div className="flex items-center gap-1.5 font-bold text-emerald-300">
+                                  <span className="text-sm">📍</span>
+                                  <span>Live Campus Location</span>
+                                </div>
+                                <div className="p-2.5 rounded-xl bg-slate-950/80 border border-emerald-500/40 text-slate-200">
+                                  <div className="flex items-center gap-1.5 text-[10px] text-emerald-400 font-semibold mb-1">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                                    <span>Real-Time Coordinates Shared</span>
+                                  </div>
+                                  <a
+                                    href={m.content_text.match(/https:\/\/maps\.google\.com[^\s\)]+/)?.[0] || 'https://maps.google.com'}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] shadow-sm transition-all"
+                                  >
+                                    <span>Open in Google Maps ➔</span>
+                                  </a>
+                                </div>
+                                <div className="text-[10px] opacity-75">
+                                  {m.content_text.replace(/https:\/\/maps\.google\.com[^\s\)]+/, '').trim()}
+                                </div>
+                              </div>
+                            ) : (
+                              <div>{m.content_text}</div>
+                            )}
                           </div>
 
                           {/* Hover Emoji Reaction Bar (Instagram Style) */}
@@ -633,7 +704,7 @@ export default function CampusChatPage({ user }) {
               {/* Message Input Bar (Instagram Style) */}
               <form onSubmit={handleSendMessage} className="p-3 border-t border-slate-800 bg-slate-950/90 flex items-center gap-2">
                 {/* Photo Attachment Picker */}
-                <label className="cursor-pointer p-2 rounded-xl text-slate-400 hover:text-blue-400 hover:bg-slate-900 transition-all flex-shrink-0">
+                <label className="cursor-pointer p-2 rounded-xl text-slate-400 hover:text-blue-400 hover:bg-slate-900 transition-all flex-shrink-0" title="Attach Photo">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
@@ -650,6 +721,21 @@ export default function CampusChatPage({ user }) {
                     className="hidden"
                   />
                 </label>
+
+                {/* Share Live Location Button (WhatsApp Style) */}
+                <button
+                  type="button"
+                  onClick={handleShareLiveLocation}
+                  disabled={locating || !activeThreadId}
+                  className="p-2 rounded-xl text-slate-400 hover:text-emerald-400 hover:bg-slate-900 transition-all flex-shrink-0"
+                  title="Share Live Location"
+                >
+                  {locating ? (
+                    <span className="w-5 h-5 flex items-center justify-center animate-spin text-xs">⏳</span>
+                  ) : (
+                    <span className="text-base">📍</span>
+                  )}
+                </button>
 
                 {/* Text Input */}
                 <input

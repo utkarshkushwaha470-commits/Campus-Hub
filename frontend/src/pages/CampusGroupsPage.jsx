@@ -86,6 +86,30 @@ export default function CampusGroupsPage({ user }) {
     }
   };
 
+  const handleShareGroupLocation = () => {
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by your browser.');
+      return;
+    }
+    if (!activeGroupId) return;
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const mapsLink = `https://maps.google.com/?q=${lat},${lng}`;
+        const locMsg = `📍 Live Campus Location: ${mapsLink}`;
+        try {
+          await api.postGroupMessage(activeGroupId, locMsg);
+          loadGroupDetails(activeGroupId);
+        } catch (err) {
+          alert(err.message || 'Failed to share location');
+        }
+      },
+      () => alert('Could not get GPS location. Please check browser permissions.')
+    );
+  };
+
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!selectedGroup || !msgInput.trim()) return;
@@ -356,7 +380,21 @@ export default function CampusGroupsPage({ user }) {
                             {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
-                        <p className="leading-relaxed">{m.content_text}</p>
+                        {m.content_text && m.content_text.includes('maps.google.com') ? (
+                          <div className="space-y-1">
+                            <span className="font-bold text-emerald-300">📍 Live Location Shared</span>
+                            <a
+                              href={m.content_text.match(/https:\/\/maps\.google\.com[^\s\)]+/)?.[0] || 'https://maps.google.com'}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-block mt-1 px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px]"
+                            >
+                              Open in Google Maps ➔
+                            </a>
+                          </div>
+                        ) : (
+                          <p className="leading-relaxed">{m.content_text}</p>
+                        )}
                       </div>
                     ))
                   )}
@@ -371,6 +409,14 @@ export default function CampusGroupsPage({ user }) {
                     onChange={(e) => setMsgInput(e.target.value)}
                     className="flex-1 px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 text-xs outline-none focus:border-indigo-500"
                   />
+                  <button
+                    type="button"
+                    onClick={handleShareGroupLocation}
+                    className="p-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-400 hover:text-emerald-400 transition"
+                    title="Share Live Location"
+                  >
+                    📍
+                  </button>
                   <button
                     type="submit"
                     disabled={!msgInput.trim()}

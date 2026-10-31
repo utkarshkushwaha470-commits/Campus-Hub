@@ -5,7 +5,7 @@ export default function ProblemBoxPage({ user }) {
   const isAdmin = user?.role === 'ADMIN' || Boolean(user?.is_chief_admin) || user?.email?.toLowerCase().trim() === 'utkarshkushwaha470@gmail.com';
 
   // Student State
-  const [recipient, setRecipient] = useState('DEAN');
+  const [recipient, setRecipient] = useState('FACULTY');
   const [subject, setSubject] = useState('');
   const [contentText, setContentText] = useState('');
   const [loading, setLoading] = useState(false);
@@ -262,11 +262,10 @@ export default function ProblemBoxPage({ user }) {
                     <select
                       value={recipient}
                       onChange={(e) => setRecipient(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-slate-100 text-xs focus:outline-none focus:border-indigo-500"
+                      className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-slate-100 text-xs focus:outline-none focus:border-indigo-500 font-semibold"
                     >
-                      <option value="DEAN">Dean of Academics & Student Welfare</option>
-                      <option value="HOD">Head of Department (HOD)</option>
-                      <option value="DIRECTOR">College Director / Principal</option>
+                      <option value="FACULTY">🏫 Send to Faculty</option>
+                      <option value="ADMINISTRATOR">🛡️ Send to Administrator</option>
                     </select>
                   </div>
                   <div>
@@ -390,17 +389,27 @@ export default function ProblemBoxPage({ user }) {
                         )}
                       </div>
 
-                      {/* Student Identification (Confidential Admin View) */}
+                      {/* Student Identification: Admin sees all details, Faculty sees Anonymous */}
                       <div className="p-2 sm:px-3 sm:py-1.5 rounded-xl bg-slate-950/80 border border-amber-500/30 text-left sm:text-right">
                         <div className="text-xs font-bold text-amber-300 flex items-center sm:justify-end gap-1.5">
-                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 uppercase font-black">
-                            Student Eyes Only
+                          <span className={`text-[10px] px-1.5 py-0.2 rounded uppercase font-black ${
+                            user.role === 'ADMIN'
+                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                              : 'bg-slate-800 text-slate-400 border border-slate-700'
+                          }`}>
+                            {user.role === 'ADMIN' ? '👑 Admin Eyes Only' : '🔒 Protected Identity'}
                           </span>
-                          <span>{studentName}</span>
+                          <span>{user.role === 'ADMIN' ? studentName : 'Anonymous Student'}</span>
                         </div>
-                        <div className="text-[11px] text-slate-400 font-mono mt-0.5">
-                          {studentEmail} {studentCrn ? `• ${studentCrn}` : ''} {studentYear ? `• ${studentYear}` : ''}
-                        </div>
+                        {user.role === 'ADMIN' ? (
+                          <div className="text-[11px] text-slate-400 font-mono mt-0.5">
+                            {studentEmail} {studentCrn ? `• ${studentCrn}` : ''} {studentYear ? `• ${studentYear}` : ''}
+                          </div>
+                        ) : (
+                          <div className="text-[10px] text-slate-500 italic mt-0.5">
+                            Concealed by institutional privacy policy
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -560,11 +569,10 @@ export default function ProblemBoxPage({ user }) {
                   <select
                     value={recipient}
                     onChange={(e) => setRecipient(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:border-amber-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:border-amber-500 font-semibold"
                   >
-                    <option value="DEAN">Dean of Academics & Student Welfare</option>
-                    <option value="HOD">Head of Department (HOD)</option>
-                    <option value="DIRECTOR">College Director / Principal</option>
+                    <option value="FACULTY">🏫 Send to Faculty</option>
+                    <option value="ADMINISTRATOR">🛡️ Send to Administrator</option>
                   </select>
                 </div>
                 <div>

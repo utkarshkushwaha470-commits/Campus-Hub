@@ -4,6 +4,9 @@ from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Text
 from app.database import Base
 
 class ProblemRecipientRole:
+    FACULTY = "FACULTY"
+    ADMINISTRATOR = "ADMINISTRATOR"
+    # Legacy aliases
     DEAN = "DEAN"
     HOD = "HOD"
     DIRECTOR = "DIRECTOR"
@@ -18,9 +21,9 @@ class ProblemBoxMessage(Base):
     __tablename__ = "problem_box_messages"
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    # Sender identity is stored here ONLY and is strictly forbidden from exposure to non-admins or Gemma 4
+    # Sender identity is stored here ONLY and is strictly forbidden from exposure to faculty or Gemma 4
     student_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
-    recipient_role = Column(String(50), nullable=False)  # DEAN, HOD, DIRECTOR
+    recipient_role = Column(String(50), nullable=False)  # FACULTY, ADMINISTRATOR
     subject = Column(String(300), nullable=False)
     content_text = Column(Text, nullable=False)
     
@@ -30,7 +33,7 @@ class ProblemBoxMessage(Base):
     ai_safety_flag = Column(Boolean, default=False)
     ai_safety_category = Column(String(100), nullable=True)  # e.g., "URGENT", "HARASSMENT", "WELLNESS", "STANDARD"
     
-    # Admin resolution
+    # Admin / Faculty resolution
     forwarded_to_name = Column(String(200), nullable=True)
     admin_response_text = Column(Text, nullable=True)
     forwarded_at = Column(DateTime, nullable=True)
