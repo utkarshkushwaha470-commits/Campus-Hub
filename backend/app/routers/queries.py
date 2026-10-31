@@ -86,8 +86,17 @@ async def post_query(
         photo_bytes = await photo.read()
         photo_path = await storage_service.save_public_upload(photo_bytes, photo.filename)
 
-    # Gemma 4 safety pre-screening
+    # Gemma 4 safety pre-screening & instant academic answer generation
     analysis = await ai_service.analyze_query_upload(text=f"{title} {content_text}", image_bytes=photo_bytes)
+    
+    try:
+        ai_solution = await ai_service.generate_ai_hint(
+            question_text=content_text.strip(),
+            subject=subject.strip(),
+            question_title=title.strip()
+        )
+    except Exception:
+        ai_solution = None
 
     query_obj = Query(
         poster_id=current_user.id,
@@ -100,7 +109,7 @@ async def post_query(
         photo_storage_path=photo_path,
         subject=subject.strip(),
         tags=tags,
-        ai_hint=None,
+        ai_hint=ai_solution,
         is_resolved=False
     )
     db.add(query_obj)
@@ -329,12 +338,12 @@ async def request_ai_hint(
     if not query_obj:
         raise HTTPException(status_code=404, detail="Query not found.")
 
-    if not query_obj.ai_hint:
-        hint_text = await ai_service.generate_ai_hint(
-            question_text=f"{query_obj.title} {query_obj.content_text}",
-            subject=query_obj.subject
-        )
-        query_obj.ai_hint = hint_text
-        db.commit()
+    hint_text = await ai_service.generate_ai_hint(
+        question_text=query_obj.content_text,
+        subject=query_obj.subject,
+        question_title=query_obj.title
+    )
+    query_obj.ai_hint = hint_text
+    db.commit()
 
     return {"ai_hint": query_obj.ai_hint}

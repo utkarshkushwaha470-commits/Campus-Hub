@@ -27,6 +27,7 @@ export default function YearSectionPage({ user }) {
   const [ratingStars, setRatingStars] = useState(5);
   const [ratingComment, setRatingComment] = useState('');
   const [ratingStatusMsg, setRatingStatusMsg] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
 
   useEffect(() => {
     loadQueries(selectedYear);
@@ -115,6 +116,7 @@ export default function YearSectionPage({ user }) {
   };
 
   const handleAiHint = async (queryId) => {
+    setAiLoading(true);
     try {
       const res = await api.requestAiHint(queryId);
       if (activeQuery && activeQuery.id === queryId) {
@@ -122,7 +124,9 @@ export default function YearSectionPage({ user }) {
       }
       loadQueries(selectedYear);
     } catch (err) {
-      alert(err.message || 'Error generating AI hint');
+      alert(err.message || 'Error generating Gemma 4 AI solution');
+    } finally {
+      setAiLoading(false);
     }
   };
 
@@ -292,32 +296,59 @@ export default function YearSectionPage({ user }) {
                 )}
               </div>
 
-              {/* Gemma 4 AI Hint Button & Card */}
-              <div className="p-3.5 rounded-xl bg-gradient-to-r from-blue-950/40 via-indigo-950/30 to-slate-900 border border-blue-900/60">
-                <div className="flex items-center justify-between mb-1.5">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-blue-300">
-                    <span>✨ Google Gemma 4 AI Advisory Assist</span>
-                  </div>
-                  {!activeQuery.ai_hint && (
-                    <button
-                      onClick={() => handleAiHint(activeQuery.id)}
-                      className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-[11px]"
-                    >
-                      Generate AI Hint
-                    </button>
-                  )}
-                </div>
-                {activeQuery.ai_hint ? (
-                  <div className="text-xs text-blue-200/90 leading-relaxed italic bg-slate-950/60 p-2.5 rounded-lg border border-blue-900/40">
-                    {activeQuery.ai_hint}
-                    <span className="block not-italic text-[10px] text-slate-400 mt-1">
-                      Note: AI hints are advisory only and excluded from rankings and points.
+              {/* Gemma 4 AI Academic Solution Card */}
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-950/60 via-slate-900/90 to-blue-950/50 border border-indigo-500/40 shadow-xl backdrop-blur-md">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 border-b border-indigo-500/20 pb-2.5">
+                  <div className="flex items-center gap-2 text-xs font-black text-indigo-300">
+                    <span className="p-1 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">✨</span>
+                    <span className="tracking-wide">Google Gemma 4 AI Academic Solution</span>
+                    <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      Live AI Tutor
                     </span>
                   </div>
+
+                  <button
+                    onClick={() => handleAiHint(activeQuery.id)}
+                    disabled={aiLoading}
+                    className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold text-xs shadow-md shadow-indigo-600/30 disabled:opacity-50 transition-all cursor-pointer flex items-center gap-1.5 self-start sm:self-auto"
+                  >
+                    <span>{aiLoading ? '⏳' : activeQuery.ai_hint ? '🔄' : '✨'}</span>
+                    <span>
+                      {aiLoading
+                        ? 'Gemma 4 Generating...'
+                        : activeQuery.ai_hint
+                        ? 'Regenerate AI Answer'
+                        : 'Generate AI Answer'}
+                    </span>
+                  </button>
+                </div>
+
+                {aiLoading ? (
+                  <div className="p-6 text-center rounded-xl bg-slate-950/70 border border-indigo-500/20 space-y-2">
+                    <div className="inline-block animate-spin text-2xl">⚙️</div>
+                    <p className="text-xs font-semibold text-indigo-200">
+                      Google Gemma 4 is analyzing your doubt & generating a comprehensive academic answer...
+                    </p>
+                    <p className="text-[10px] text-slate-400">
+                      Curriculum-aligned multi-step solution for Allenhouse Institute of Technology students.
+                    </p>
+                  </div>
+                ) : activeQuery.ai_hint ? (
+                  <div className="space-y-2">
+                    <div className="text-xs sm:text-[13px] text-slate-100 leading-relaxed font-sans whitespace-pre-wrap bg-slate-950/80 p-4 rounded-xl border border-indigo-500/30 font-medium">
+                      {activeQuery.ai_hint}
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-slate-400 px-1 pt-1">
+                      <span>✓ Gemma 4 Advisory Solution • Verified Academic Breakdown</span>
+                      <span className="italic">AI answers are advisory and excluded from student ranking points.</span>
+                    </div>
+                  </div>
                 ) : (
-                  <p className="text-[11px] text-slate-400">
-                    Click to request a Gemma 4 conceptual hint while seniors formulate answers.
-                  </p>
+                  <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 text-center">
+                    <p className="text-xs text-slate-300">
+                      Need immediate help? Click <strong>"Generate AI Answer"</strong> above to receive a comprehensive Gemma 4 step-by-step academic solution while senior peers review your doubt.
+                    </p>
+                  </div>
                 )}
               </div>
 

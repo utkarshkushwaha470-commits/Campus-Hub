@@ -1,4 +1,5 @@
 Message_ID,Message_Timestamp,Sender_Name,Sender_Role,Recipient_Name,Recipient_Role,Message_Content,Message_Type,Delivery_Status
+1e408623-7330-4c4b-bc9f-0d097d0e362d,2026-10-31 09:28:42.101007,Krishna Verma,STUDENT,UTKARSH   KUSHWAHA,ADMIN,hello,Text / Media,Seen / Read
 664dc667-6add-4ec4-acdb-10e015f37d56,2026-10-31 09:18:15.418348,pranjal sahu,STUDENT,UTKARSH   KUSHWAHA,ADMIN,hi,Text / Media,Seen / Read
 6e5066c8-fd38-4935-8a6b-54114c33189f,2026-10-31 08:40:14.735535,pranjal sahu,STUDENT,UTKARSH   KUSHWAHA,ADMIN,hello,Text / Media,Seen / Read
 871c1410-7ead-40ea-890f-5310a6970b92,2026-10-31 08:39:40.032083,UTKARSH   KUSHWAHA,ADMIN,pranjal sahu,STUDENT,gi bhai,Text / Media,Seen / Read
