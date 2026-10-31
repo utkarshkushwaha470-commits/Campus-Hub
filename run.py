@@ -48,6 +48,7 @@ def get_lan_ip():
     """Detects local network IP address for multi-device access."""
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.settimeout(1.0)
         s.connect(("8.8.8.8", 80))
         ip = s.getsockname()[0]
         s.close()
@@ -86,9 +87,11 @@ if __name__ == "__main__":
     print("  * Press Ctrl+C to stop the server.")
     print("==================================================================")
 
-    # 2. Automatically launch browser
-    open_browser_delayed(f"http://localhost:{port}")
+    # 2. Automatically launch browser if interactive
+    if os.getenv("AUTO_OPEN_BROWSER", "true").lower() != "false":
+        open_browser_delayed(f"http://localhost:{port}")
 
-    # 3. Start Uvicorn
+    # 3. Start Uvicorn cleanly without crashing on background sessions
     import uvicorn
-    uvicorn.run("app.main:app", host=host, port=port, reload=True)
+    reload_env = os.getenv("UVICORN_RELOAD", "false").lower() in ("true", "1")
+    uvicorn.run("app.main:app", host=host, port=port, reload=reload_env)
