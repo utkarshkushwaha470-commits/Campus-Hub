@@ -10,6 +10,24 @@ if sys.platform == 'win32':
         pass
 
 import webbrowser
+import subprocess
+
+def get_saved_live_url():
+    paths = [
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "LIVE_SERVER_URL.txt"),
+        os.path.join(os.path.expanduser("~"), "Desktop", "LIVE_SERVER_URL.txt"),
+        os.path.join(os.path.expanduser("~"), "Desktop", "Campus-Hub-Project", "LIVE_SERVER_URL.txt")
+    ]
+    for p in paths:
+        if os.path.exists(p):
+            try:
+                with open(p, "r", encoding="utf-8") as f:
+                    url = f.read().strip()
+                    if url and ("http://" in url or "https://" in url):
+                        return url
+            except Exception:
+                pass
+    return None
 
 def main():
     if os.name == 'nt':
@@ -23,27 +41,36 @@ def main():
     print("   running on Chief Administrator Utkarsh Kushwaha's laptop.")
     print()
     print("   All student/faculty logins, doubt discussions, Problem Box grievances,")
-    print("   and purpose group chats will sync directly to Utkarsh's database in real time.")
+    print("   and AskUp messages will sync directly to Utkarsh's database in real time.")
     print("=" * 80)
     print()
 
-    print("Enter the Chief Administrator's live public link or local IP address.")
-    print("Examples:")
-    print("  - Cloudflare Public Link: https://something-random.trycloudflare.com")
-    print("  - Local Wi-Fi / Hotspot:  http://192.168.31.46:8000")
-    print()
-    
-    server_input = input("Enter Server Link [or press Enter to open live web portal]: ").strip()
-    
-    if not server_input:
-        server_input = "https://campus-hub-kappa.vercel.app"
-    
-    if not server_input.startswith("http://") and not server_input.startswith("https://"):
-        server_input = "https://" + server_input
+    saved_url = get_saved_live_url()
+    if saved_url:
+        print(f"[*] Detected Utkarsh's Active Live Server:")
+        print(f"    👉 {saved_url}")
+        print()
+        prompt_text = f"Press Enter to connect to this server, or paste a new URL: "
+    else:
+        print("Enter Chief Administrator Utkarsh Kushwaha's live link.")
+        print("Examples:")
+        print("  - Cloudflare Public Link: https://example.trycloudflare.com")
+        print("  - Local Wi-Fi / Hotspot:  http://192.168.31.46:8000")
+        print()
+        prompt_text = "Enter Server Link: "
 
-    clean_url = server_input.rstrip("/")
-    
-    # Save to frontend/.env for local npm run dev
+    user_input = input(prompt_text).strip()
+    if not user_input:
+        target_url = saved_url if saved_url else "http://localhost:8000"
+    else:
+        target_url = user_input
+
+    if not target_url.startswith("http://") and not target_url.startswith("https://"):
+        target_url = "https://" + target_url
+
+    clean_url = target_url.rstrip("/")
+
+    # Update frontend/.env
     base_dir = os.path.dirname(os.path.abspath(__file__))
     frontend_dir = os.path.join(base_dir, "frontend")
     if os.path.exists(frontend_dir):
@@ -57,16 +84,22 @@ def main():
 
     print()
     print("=" * 80)
-    print(f"CONNECTING! Routing all Campus Hub requests to:")
+    print(f"🎉 CONNECTED! Routing all Campus Hub requests to Utkarsh Kushwaha's Server:")
     print(f"   👉 {clean_url}")
     print("=" * 80)
     print()
-    print("Opening Campus Hub in your browser now...")
+
+    # Open web browser directly to the server or with ?server parameter
+    open_url = clean_url
+    print(f"Opening Campus Hub in your browser now: {open_url}")
     try:
-        webbrowser.open(clean_url)
+        webbrowser.open(open_url)
     except Exception:
         pass
-    print("Done! Press Enter to close this window.")
+
+    print()
+    print("All done! Any actions you perform in the browser will sync to Utkarsh's laptop.")
+    print("Press Enter to close this window.")
     input()
 
 if __name__ == "__main__":

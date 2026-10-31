@@ -13,5 +13,8 @@ if exist "venv\Scripts\python.exe" (
 
 if %ERRORLEVEL% NEQ 0 (
     echo.
+    echo If Python is not installed, open the live link directly in your browser:
+    type LIVE_SERVER_URL.txt 2>nul
+    echo.
     pause
 )

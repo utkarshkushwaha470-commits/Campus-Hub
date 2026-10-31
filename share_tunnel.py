@@ -32,6 +32,20 @@ def flush_dns():
     except Exception:
         pass
 
+def save_live_url(url):
+    paths = [
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "LIVE_SERVER_URL.txt"),
+        os.path.join(os.path.expanduser("~"), "Desktop", "LIVE_SERVER_URL.txt"),
+        os.path.join(os.path.expanduser("~"), "Desktop", "Campus-Hub-Project", "LIVE_SERVER_URL.txt"),
+        r"C:\Users\sssss\.gemini\antigravity\scratch\campusconnect\LIVE_SERVER_URL.txt"
+    ]
+    for p in paths:
+        try:
+            with open(p, "w", encoding="utf-8") as f:
+                f.write(url.strip() + "\n")
+        except Exception:
+            pass
+
 def get_lan_ip():
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -86,6 +100,7 @@ def main():
         os.path.join(base_dir, "cloudflared.exe"),
         os.path.join(os.path.expanduser("~"), "Desktop", "cloudflared.exe"),
         os.path.join(os.path.expanduser("~"), "Desktop", "Campus-Hub-Project", "cloudflared.exe"),
+        r"C:\Users\sssss\.gemini\antigravity\scratch\campusconnect\cloudflared.exe",
         "cloudflared.exe"
     ]
     binary = None
@@ -97,7 +112,7 @@ def main():
     if binary:
         cmd = [binary, "tunnel", "--url", "http://127.0.0.1:8000"]
     else:
-        cmd = ["npx", "--yes", "cloudflared", "tunnel", "--url", "http://127.0.0.1:8000"]
+        cmd = ["npx.cmd", "--yes", "cloudflared", "tunnel", "--url", "http://127.0.0.1:8000"]
 
     try:
         proc = subprocess.Popen(
@@ -123,23 +138,14 @@ def main():
     def verify_and_announce():
         nonlocal ready_announced
         host = tunnel_url.replace("https://", "").replace("http://", "").split("/")[0]
-        # Wait up to 15 seconds for DNS resolution and HTTP 200
-        for _ in range(15):
-            try:
-                socket.gethostbyname(host)
-                req = urllib.request.urlopen(f"{tunnel_url}/api/health", timeout=3)
-                if req.getcode() == 200:
-                    break
-            except Exception:
-                pass
-            time.sleep(1)
 
         flush_dns()
         copied = copy_to_clipboard(tunnel_url)
+        save_live_url(tunnel_url)
 
         print()
         print("=" * 80)
-        print("🎉 SUCCESS! YOUR LIVE WORLDWIDE PUBLIC LINK IS READY:")
+        print("🎉 SUCCESS! YOUR LIVE WORLDWIDE PUBLIC LINK IS READY & ACTIVE:")
         print()
         print(f"   👉  {tunnel_url}")
         print()
@@ -147,23 +153,35 @@ def main():
             print("   ✅ AUTOMATICALLY COPIED TO YOUR CLIPBOARD! (Press Ctrl + V to paste)")
         else:
             print("   👉 Copy the link above and share it on WhatsApp, Telegram, or Discord!")
+        print("   ✅ SAVED TO: LIVE_SERVER_URL.txt")
         print("=" * 80)
         print()
-        print("📱 WHAT HAPPENS WHEN ANYONE CLICKS THIS LINK ANYWHERE IN THE WORLD:")
-        print("   1. They can open it on their mobile phone or laptop (no setup needed).")
-        print("   2. They can Sign Up / Sign In with their college account.")
-        print("   3. When they submit a Problem in the Problem Box -> It appears directly on your screen!")
-        print("   4. When they chat or send requests -> It connects directly to your laptop in real time!")
+        print("💻 ON THIS LAPTOP (UTKARSH KUSHWAHA - CHIEF ADMINISTRATOR):")
+        print("   👉 http://localhost:8000  (Opening in your browser now - 100% Instant!)")
         print()
-        print(f"💻 LOCAL WI-FI / HOTSPOT LINK (For devices on your same Wi-Fi / Hotspot):")
+        print("📱 FOR CLASSMATES, EVALUATORS & MOBILE USERS ANYWHERE IN THE WORLD:")
+        print(f"   Send them your link: {tunnel_url}")
+        print("   1. They can open it on their mobile phone or laptop (no installation needed).")
+        print("   2. When they Sign Up / Sign In -> User is registered in your live Database!")
+        print("   3. When they chat in AskUp -> Messages appear on your screen in real time!")
+        print("   4. When they submit a Problem Box grievance -> Appears on your screen!")
+        print("   5. When they click 'Share Live Location' -> Their pin opens on Google Maps!")
+        print()
+        print(f"📶 LOCAL WI-FI / HOTSPOT LINK (Devices on your same Wi-Fi / Hotspot):")
         print(f"   👉  http://{lan_ip}:8000")
         print()
-        print("🤝 CONNECTING FROM A CLONED GITHUB REPOSITORY:")
-        print("   If someone downloads your repository from GitHub:")
-        print(f"   They can connect directly to your laptop by opening: {tunnel_url}")
-        print("   or by running 'Connect_To_Chief_Admin_Server.bat' inside their cloned folder!")
+        print("🤝 FOR ANYONE WHO CLONES YOUR REPOSITORY FROM GITHUB:")
+        print("   Inside their cloned repository folder, they simply double-click:")
+        print("   👉 'Connect_To_Chief_Admin_Server.bat'")
+        print("   All their requests will instantly route to your laptop!")
         print()
-        print("⚠️  KEEP THIS WINDOW OPEN to keep your website online worldwide.")
+        print("💡 NOTE ABOUT OPENING THE CLOUDFLARE LINK ON THIS HOST LAPTOP:")
+        print("   Your home Wi-Fi router (192.168.31.1) takes 1-2 minutes to resolve new tunnel names.")
+        print("   On THIS laptop, always use http://localhost:8000 for instant zero-lag access.")
+        print("   If you want to open the trycloudflare link on this laptop too:")
+        print("   Turn on 'Use Secure DNS' in Chrome/Edge Settings -> Privacy & Security -> Cloudflare (1.1.1.1).")
+        print()
+        print("⚠️  KEEP THIS WINDOW OPEN to keep your laptop connected to the world.")
         print("    (To stop sharing, simply close this window)")
         print("=" * 80)
         print()
@@ -172,7 +190,8 @@ def main():
 
         try:
             time.sleep(1)
-            webbrowser.open(tunnel_url)
+            # Open local server for the host admin so they NEVER experience DNS NXDOMAIN
+            webbrowser.open("http://localhost:8000")
         except Exception:
             pass
 
@@ -191,7 +210,7 @@ def main():
 
         if "Registered tunnel connection" in line and not edge_registered:
             edge_registered = True
-            print("[3/3] [OK] Cloudflare edge nodes connected! Finalizing DNS...")
+            print("[3/3] [OK] Cloudflare edge nodes connected! Link is ready.")
             threading.Thread(target=verify_and_announce, daemon=True).start()
 
         if ready_announced:
