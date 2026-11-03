@@ -23,8 +23,9 @@ from app.services.database_sync_service import (
     export_database_now
 )
 
-# Start real-time continuous database watcher so every change syncs instantly to File Explorer
-start_continuous_database_watcher()
+# Start real-time continuous database watcher so every change syncs instantly to File Explorer (on local machine)
+if not os.getenv("VERCEL"):
+    start_continuous_database_watcher()
 
 # Create database tables automatically
 Base.metadata.create_all(bind=engine)
